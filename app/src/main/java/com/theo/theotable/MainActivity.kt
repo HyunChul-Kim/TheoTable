@@ -137,6 +137,7 @@ fun TableSample(modifier: Modifier = Modifier) {
             state = tableState,
             selectionMode = selectionMode,
             sortingEnabled = sortingEnabled,
+            verticalScrollEnabled = false,
             headerTextStyle = TextStyle(
                 fontSize = headerTextSize.sp,
                 fontWeight = FontWeight.Bold,
@@ -148,7 +149,6 @@ fun TableSample(modifier: Modifier = Modifier) {
             ),
             headerBackground = if (tableHeaderBackground) Color(0xFFF5F5F5) else Color.Transparent,
             cellBackground = if (tableCellBackground) Color.White else Color.Transparent,
-            modifier = Modifier.height(260.dp),
         )
 
         HorizontalDivider()

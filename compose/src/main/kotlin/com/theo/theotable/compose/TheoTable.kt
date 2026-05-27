@@ -38,6 +38,7 @@ fun <T, K> TheoTable(
     state: TheoTableState<K> = rememberTheoTableState(),
     selectionMode: SelectionMode = SelectionMode.None,
     sortingEnabled: Boolean = true,
+    verticalScrollEnabled: Boolean = true,
     textStyle: TextStyle = TextStyle.Default,
     headerTextStyle: TextStyle = textStyle,
     cellTextStyle: TextStyle = textStyle,
@@ -104,7 +105,11 @@ fun <T, K> TheoTable(
             )
 
             Column(
-                modifier = Modifier.verticalScroll(verticalScrollState),
+                modifier = if(verticalScrollEnabled) {
+                    Modifier.verticalScroll(verticalScrollState)
+                } else {
+                    Modifier
+                },
             ) {
                 snapshot.rows.forEachIndexed { index, row ->
                     val key = snapshot.rowKeys[index]
