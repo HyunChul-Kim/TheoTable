@@ -7,23 +7,32 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,13 +42,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.theo.theotable.compose.TheoTable
+import com.theo.theotable.compose.TheoTableColumn
 import com.theo.theotable.compose.rememberTheoTableState
 import com.theo.theotable.compose.theoTextColumn
 import com.theo.theotable.core.SelectionMode
 import com.theo.theotable.model.DemoColumnOptions
 import com.theo.theotable.model.DemoWidthMode
+import com.theo.theotable.model.maxLinesForWidthMode
 import com.theo.theotable.model.toWidth
 import com.theo.theotable.ui.theme.TheoTableTheme
+import kotlin.math.roundToInt
 
 class MainActivity: ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,17 +73,122 @@ data class Dessert(
     val id: Int,
     val name: String,
     val calories: Int,
+    val fat: Double,
+    val carbs: Int,
+    val protein: Double,
+    val sodium: Int,
     val price: Int,
 )
 
 private val sampleDesserts = listOf(
-    Dessert(1, "Cupcake", 305, 3500),
-    Dessert(2, "Donut", 452, 2800),
-    Dessert(3, "Eclair", 262, 4200),
-    Dessert(4, "Froyo", 159, 3900),
-    Dessert(5, "Gingerbread", 356, 3200),
+    Dessert(1, "Cupcake", 305, 3.7, 67, 4.3, 413, 3500),
+    Dessert(2, "Donut", 452, 25.0, 51, 4.9, 326, 2800),
+    Dessert(3, "Eclair", 262, 16.0, 24, 6.0, 337, 4200),
+    Dessert(4, "Frozen yogurt with honey topping", 159, 6.0, 24, 4.0, 87, 3900),
+    Dessert(5, "Gingerbread", 356, 16.0, 49, 3.9, 327, 3200),
+    Dessert(6, "Honeycomb", 408, 3.2, 87, 6.5, 562, 4500),
+    Dessert(7, "Ice cream sandwich", 237, 9.0, 37, 4.3, 129, 3700),
+    Dessert(8, "Jelly bean assortment pack", 375, 0.0, 94, 0.0, 50, 2500),
+    Dessert(9, "KitKat", 518, 26.0, 65, 7.0, 54, 3300),
+    Dessert(10, "Lollipop", 392, 0.2, 98, 0.0, 38, 1900),
+    Dessert(11, "Marshmallow", 318, 0.2, 81, 1.8, 80, 2200),
+    Dessert(12, "Nougat bar with roasted nuts", 360, 19.0, 43, 3.0, 210, 4100),
+    Dessert(13, "Oreo", 437, 18.0, 63, 4.0, 203, 3000),
 )
 
+private data class DessertColumnSpec(
+    val id: String,
+    val title: String,
+    val value: (Dessert) -> String,
+    val comparator: Comparator<Dessert>,
+    val cellAlignment: Alignment = Alignment.CenterStart,
+    val headerTint: Color,
+    val cellTint: Color,
+)
+
+private val dessertColumnSpecs = listOf(
+    DessertColumnSpec(
+        id = "name",
+        title = "Name",
+        value = { it.name },
+        comparator = compareBy { it.name },
+        headerTint = Color(0xFFFFF3D8),
+        cellTint = Color(0xFFFFFBF0),
+    ),
+    DessertColumnSpec(
+        id = "calories",
+        title = "Calories",
+        value = { it.calories.toString() },
+        comparator = compareBy { it.calories },
+        cellAlignment = Alignment.CenterEnd,
+        headerTint = Color(0xFFE8F1FF),
+        cellTint = Color(0xFFF4F8FF),
+    ),
+    DessertColumnSpec(
+        id = "fat",
+        title = "Fat",
+        value = { "${it.fat}g" },
+        comparator = compareBy { it.fat },
+        cellAlignment = Alignment.CenterEnd,
+        headerTint = Color(0xFFFFEFEF),
+        cellTint = Color(0xFFFFF7F7),
+    ),
+    DessertColumnSpec(
+        id = "carbs",
+        title = "Carbs",
+        value = { "${it.carbs}g" },
+        comparator = compareBy { it.carbs },
+        cellAlignment = Alignment.CenterEnd,
+        headerTint = Color(0xFFEFF6FF),
+        cellTint = Color(0xFFF8FBFF),
+    ),
+    DessertColumnSpec(
+        id = "protein",
+        title = "Protein",
+        value = { "${it.protein}g" },
+        comparator = compareBy { it.protein },
+        cellAlignment = Alignment.CenterEnd,
+        headerTint = Color(0xFFF0FDF4),
+        cellTint = Color(0xFFF7FEF9),
+    ),
+    DessertColumnSpec(
+        id = "sodium",
+        title = "Sodium",
+        value = { "${it.sodium}mg" },
+        comparator = compareBy { it.sodium },
+        cellAlignment = Alignment.CenterEnd,
+        headerTint = Color(0xFFFFF7ED),
+        cellTint = Color(0xFFFFFBF5),
+    ),
+    DessertColumnSpec(
+        id = "price",
+        title = "Price",
+        value = { "${it.price}원" },
+        comparator = compareBy { it.price },
+        cellAlignment = Alignment.CenterEnd,
+        headerTint = Color(0xFFEAF7EA),
+        cellTint = Color(0xFFF4FBF4),
+    ),
+)
+
+private fun DessertColumnSpec.toColumn(
+    options: DemoColumnOptions,
+): TheoTableColumn<Dessert> {
+    return theoTextColumn(
+        id = id,
+        title = title,
+        value = value,
+        width = options.toWidth(),
+        sortable = options.sortable,
+        comparator = comparator,
+        cellAlignment = cellAlignment,
+        headerBackground = if (options.headerTint) headerTint else null,
+        cellBackground = if (options.cellTint) cellTint else null,
+        maxLines = options.maxLinesForWidthMode()
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TableSample(modifier: Modifier = Modifier) {
     val tableState = rememberTheoTableState<Int>()
@@ -82,54 +199,44 @@ fun TableSample(modifier: Modifier = Modifier) {
     var cellTextSize by remember { mutableStateOf(12f) }
     var tableHeaderBackground by remember { mutableStateOf(true) }
     var tableCellBackground by remember { mutableStateOf(true) }
-    
-    var nameOptions by remember { mutableStateOf(DemoColumnOptions()) }
-    var caloriesOptions by remember { mutableStateOf(DemoColumnOptions()) }
-    var priceOptions by remember { mutableStateOf(DemoColumnOptions()) }
 
-    val columns = remember(nameOptions, caloriesOptions, priceOptions) {
-        listOf(
-            theoTextColumn(
-                id = "name",
-                title = "Name",
-                value = { it.name },
-                width = nameOptions.toWidth(),
-                sortable = nameOptions.sortable,
-                comparator = compareBy<Dessert> { it.name },
-                headerBackground = if(nameOptions.headerTint) Color(0xFFFFF3D8) else null,
-                cellBackground = if(nameOptions.cellTint) Color(0xFFFFFBF0) else null,
-            ),
-            theoTextColumn(
-                id = "calories",
-                title = "Calories",
-                value = { it.calories.toString() },
-                width = caloriesOptions.toWidth(),
-                sortable = caloriesOptions.sortable,
-                comparator = compareBy<Dessert> { it.calories },
-                cellAlignment = Alignment.CenterEnd,
-                headerBackground = if (caloriesOptions.headerTint) Color(0xFFE8F1FF) else null,
-                cellBackground = if (caloriesOptions.cellTint) Color(0xFFF4F8FF) else null,
-            ),
-            theoTextColumn(
-                id = "price",
-                title = "Price",
-                value = { "${it.price}원" },
-                width = priceOptions.toWidth(),
-                sortable = priceOptions.sortable,
-                comparator = compareBy<Dessert> { it.price },
-                cellAlignment = Alignment.CenterEnd,
-                headerBackground = if (priceOptions.headerTint) Color(0xFFEAF7EA) else null,
-                cellBackground = if (priceOptions.cellTint) Color(0xFFF4FBF4) else null,
-            ),
-        )
+    val columnOptions = remember {
+        dessertColumnSpecs
+            .map { it.id to DemoColumnOptions() }
+            .toMutableStateMap()
     }
+
+    var frozenColumnCount by remember { mutableStateOf(0) }
+
+    val columns = remember(columnOptions.toMap()) {
+        dessertColumnSpecs.map { spec ->
+            spec.toColumn(columnOptions.getValue(spec.id))
+        }
+    }
+
+    var showSettings by remember { mutableStateOf(false) }
+    val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     Column(
         modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text("TheoTable", fontWeight = FontWeight.Bold)
+                Text("Dessert nutrition sample")
+            }
+
+            Button(onClick = { showSettings = true }) {
+                Text("Settings")
+            }
+        }
         TheoTable(
             rows = sampleDesserts,
             columns = columns,
@@ -137,7 +244,7 @@ fun TableSample(modifier: Modifier = Modifier) {
             state = tableState,
             selectionMode = selectionMode,
             sortingEnabled = sortingEnabled,
-            verticalScrollEnabled = false,
+            frozenColumnCount = frozenColumnCount,
             headerTextStyle = TextStyle(
                 fontSize = headerTextSize.sp,
                 fontWeight = FontWeight.Bold,
@@ -150,29 +257,66 @@ fun TableSample(modifier: Modifier = Modifier) {
             headerBackground = if (tableHeaderBackground) Color(0xFFF5F5F5) else Color.Transparent,
             cellBackground = if (tableCellBackground) Color.White else Color.Transparent,
         )
+    }
 
-        HorizontalDivider()
+    if(showSettings) {
+        ModalBottomSheet(
+            onDismissRequest = { showSettings = false },
+            sheetState = settingsSheetState,
+            scrimColor = Color.Black.copy(alpha = 0.12f),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 440.dp)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Settings", fontWeight = FontWeight.Bold)
 
-        TableOptionControls(
-            sortingEnabled = sortingEnabled,
-            onSortingEnabledChange = { sortingEnabled = it },
-            selectionMode = selectionMode,
-            onSelectionModeChange = { selectionMode = it },
-            headerTextSize = headerTextSize,
-            onHeaderTextSizeChange = { headerTextSize = it },
-            cellTextSize = cellTextSize,
-            onCellTextSizeChange = { cellTextSize = it },
-            tableHeaderBackground = tableHeaderBackground,
-            onTableHeaderBackgroundChange = { tableHeaderBackground = it },
-            tableCellBackground = tableCellBackground,
-            onTableCellBackgroundChange = { tableCellBackground = it },
-        )
+                    OutlinedButton(onClick = { showSettings = false }) {
+                        Text("Close")
+                    }
+                }
 
-        HorizontalDivider()
+                TableOptionControls(
+                    sortingEnabled = sortingEnabled,
+                    onSortingEnabledChange = { sortingEnabled = it },
+                    selectionMode = selectionMode,
+                    onSelectionModeChange = { selectionMode = it },
+                    headerTextSize = headerTextSize,
+                    onHeaderTextSizeChange = { headerTextSize = it },
+                    cellTextSize = cellTextSize,
+                    onCellTextSizeChange = { cellTextSize = it },
+                    tableHeaderBackground = tableHeaderBackground,
+                    onTableHeaderBackgroundChange = { tableHeaderBackground = it },
+                    tableCellBackground = tableCellBackground,
+                    onTableCellBackgroundChange = { tableCellBackground = it },
+                    frozenColumnCount = frozenColumnCount,
+                    maxFrozenColumnCount = columns.size,
+                    onFrozenColumnCountChange = { frozenColumnCount = it },
+                )
 
-        ColumnOptionControls("Name", nameOptions) { nameOptions = it }
-        ColumnOptionControls("Calories", caloriesOptions) { caloriesOptions = it }
-        ColumnOptionControls("Price", priceOptions) { priceOptions = it }
+                HorizontalDivider()
+
+                dessertColumnSpecs.forEach { spec ->
+                    ColumnOptionControls(
+                        title = spec.title,
+                        options = columnOptions.getValue(spec.id),
+                        onChange = { columnOptions[spec.id] = it },
+                    )
+                }
+
+                Spacer(modifier = Modifier.size(1.dp))
+            }
+        }
     }
 }
 
@@ -190,6 +334,9 @@ private fun TableOptionControls(
     onTableHeaderBackgroundChange: (Boolean) -> Unit,
     tableCellBackground: Boolean,
     onTableCellBackgroundChange: (Boolean) -> Unit,
+    frozenColumnCount: Int,
+    maxFrozenColumnCount: Int,
+    onFrozenColumnCountChange: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Table options", fontWeight = FontWeight.Bold)
@@ -202,6 +349,17 @@ private fun TableOptionControls(
             SelectionModeChip("Single", selectionMode, SelectionMode.Single, onSelectionModeChange)
             SelectionModeChip("Multiple", selectionMode, SelectionMode.Multiple, onSelectionModeChange)
         }
+
+        Text("Frozen columns: $frozenColumnCount")
+        Slider(
+            value = frozenColumnCount.toFloat(),
+            onValueChange = {
+                onFrozenColumnCountChange(it.roundToInt().coerceIn(0, maxFrozenColumnCount))
+            },
+            valueRange = 0f..maxFrozenColumnCount.toFloat(),
+            steps = (maxFrozenColumnCount - 1).coerceAtLeast(0),
+        )
+
 
         Text("Header text: ${headerTextSize.toInt()}sp")
         Slider(
@@ -249,6 +407,14 @@ private fun ColumnOptionControls(
             value = options.fixedWidthDp,
             onValueChange = { onChange(options.copy(fixedWidthDp = it)) },
             valueRange = 80f..260f,
+            enabled = options.widthMode == DemoWidthMode.Fixed,
+        )
+        Text("Max lines: ${options.maxLines} (Fixed width only)")
+        Slider(
+            value = options.maxLines.toFloat(),
+            onValueChange = { onChange(options.copy(maxLines = it.roundToInt().coerceIn(1, 5))) },
+            valueRange = 1f..5f,
+            steps = 3,
             enabled = options.widthMode == DemoWidthMode.Fixed,
         )
 

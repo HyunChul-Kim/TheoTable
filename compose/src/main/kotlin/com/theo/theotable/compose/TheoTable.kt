@@ -1,10 +1,14 @@
 package com.theo.theotable.compose
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,6 +33,7 @@ import com.theo.theotable.core.SelectionMode
 import com.theo.theotable.core.TableEngine
 import com.theo.theotable.core.TableSort
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun <T, K> TheoTable(
     rows: List<T>,
@@ -39,6 +44,8 @@ fun <T, K> TheoTable(
     selectionMode: SelectionMode = SelectionMode.None,
     sortingEnabled: Boolean = true,
     verticalScrollEnabled: Boolean = true,
+    overscrollEnabled: Boolean = false,
+    frozenColumnCount: Int = 0,
     textStyle: TextStyle = TextStyle.Default,
     headerTextStyle: TextStyle = textStyle,
     cellTextStyle: TextStyle = textStyle,
@@ -83,56 +90,86 @@ fun <T, K> TheoTable(
     val horizontalScrollState = rememberScrollState()
     val verticalScrollState = rememberScrollState()
 
+    val columnLayout = remember(columns.size, frozenColumnCount) {
+        resolveTheoTableColumnLayout(
+            columnCount = columns.size,
+            frozenColumnCount = frozenColumnCount,
+        )
+    }
+
     CompositionLocalProvider(
         LocalTheoTableTextStyles provides TheoTableTextStyles(
             headerTextStyle = headerTextStyle,
             cellTextStyle = cellTextStyle,
-        )
+        ),
+        LocalOverscrollConfiguration provides if(overscrollEnabled) {
+            LocalOverscrollConfiguration.current
+        } else {
+            null
+        }
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = modifier
-                .border(width = 1.dp, color = borderColor)
-                .horizontalScroll(horizontalScrollState),
+                .border(width = 1.dp, color = borderColor),
         ) {
-            TheoTableHeader(
-                columns = columns,
-                columnWidths = columnWidths,
-                state = state,
-                sortingEnabled = sortingEnabled,
-                headerBackground = headerBackground,
-                borderColor = borderColor,
-                cellPadding = cellPadding,
-            )
+            val frozenWidth = columnWidths.sumRange(columnLayout.frozen)
+            val scrollableWidth = columnWidths.sumRange(columnLayout.scrollable)
+            val remainingWidth = maxWidth - frozenWidth
 
-            Column(
-                modifier = if(verticalScrollEnabled) {
-                    Modifier.verticalScroll(verticalScrollState)
-                } else {
-                    Modifier
-                },
-            ) {
-                snapshot.rows.forEachIndexed { index, row ->
-                    val key = snapshot.rowKeys[index]
-                    val selectable = selectionMode != SelectionMode.None
-                    val selected = selectable && state.selection.isSelected(key)
+            val scrollableViewportWidth = when {
+                !columnLayout.hasScrollableColumns -> 0.dp
+                remainingWidth <= 0.dp -> 0.dp
+                scrollableWidth < remainingWidth -> scrollableWidth
+                else -> remainingWidth
+            }
 
-                    TheoTableRow(
-                        row = row,
-                        columns = columns,
-                        columnWidths = columnWidths,
-                        selectable = selectable,
-                        selected = selected,
-                        cellBackground = cellBackground,
-                        selectedRowBackground = selectedRowBackground,
-                        borderColor = borderColor,
-                        cellPadding = cellPadding,
-                        onClick = {
-                            state.toggleSelection(
-                                key = key,
-                                mode = selectionMode,
-                            )
-                        },
-                    )
+            Column {
+                TheoTableHeader(
+                    columns = columns,
+                    columnWidths = columnWidths,
+                    state = state,
+                    sortingEnabled = sortingEnabled,
+                    columnLayout = columnLayout,
+                    horizontalScrollState = horizontalScrollState,
+                    scrollableViewportWidth = scrollableViewportWidth,
+                    headerBackground = headerBackground,
+                    borderColor = borderColor,
+                    cellPadding = cellPadding,
+                )
+
+                Column(
+                    modifier = if(verticalScrollEnabled) {
+                        Modifier.verticalScroll(verticalScrollState)
+                    } else {
+                        Modifier
+                    },
+                ) {
+                    snapshot.rows.forEachIndexed { index, row ->
+                        val key = snapshot.rowKeys[index]
+                        val selectable = selectionMode != SelectionMode.None
+                        val selected = selectable && state.selection.isSelected(key)
+
+                        TheoTableRow(
+                            row = row,
+                            columns = columns,
+                            columnWidths = columnWidths,
+                            columnLayout = columnLayout,
+                            horizontalScrollState = horizontalScrollState,
+                            scrollableViewportWidth = scrollableViewportWidth,
+                            selectable = selectable,
+                            selected = selected,
+                            cellBackground = cellBackground,
+                            selectedRowBackground = selectedRowBackground,
+                            borderColor = borderColor,
+                            cellPadding = cellPadding,
+                            onClick = {
+                                state.toggleSelection(
+                                    key = key,
+                                    mode = selectionMode,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -145,6 +182,9 @@ private fun <T, K> TheoTableHeader(
     columnWidths: List<Dp>,
     state: TheoTableState<K>,
     sortingEnabled: Boolean,
+    columnLayout: TheoTableColumnLayout,
+    horizontalScrollState: ScrollState,
+    scrollableViewportWidth: Dp,
     headerBackground: Color,
     borderColor: Color,
     cellPadding: PaddingValues,
@@ -154,32 +194,75 @@ private fun <T, K> TheoTableHeader(
             .height(TheoTableDefaults.HeaderHeight)
             .background(headerBackground),
     ) {
-        columns.forEachIndexed { index, column ->
-            val coreColumn = remember(column) { column.asCoreColumn() }
-            val sortSpec = state.sort.specs.firstOrNull { it.columnId == column.id }
-            val isSortable = sortingEnabled && column.sortable && column.comparator != null
+        TheoTableHeaderCells(
+            columns = columns,
+            columnWidths = columnWidths,
+            range = columnLayout.frozen,
+            state = state,
+            sortingEnabled = sortingEnabled,
+            headerBackground = headerBackground,
+            borderColor = borderColor,
+            cellPadding = cellPadding,
+        )
 
-            val headerState = TheoTableHeaderState(
-                isSorted = sortingEnabled && sortSpec != null,
-                sortDirection = if(sortingEnabled) sortSpec?.direction else null,
-                sortable = isSortable,
-                sortingEnabled = sortingEnabled,
-            )
-
-            Box(
+        if(columnLayout.hasScrollableColumns) {
+            Row(
                 modifier = Modifier
-                    .width(columnWidths[index])
-                    .height(TheoTableDefaults.HeaderHeight)
-                    .background(column.headerBackground ?: headerBackground)
-                    .border(width = 0.5.dp, color = borderColor)
-                    .clickable(enabled = isSortable) {
-                        state.toggleSort(coreColumn)
-                    }
-                    .padding(cellPadding),
-                contentAlignment = column.headerAlignment,
+                    .width(scrollableViewportWidth)
+                    .horizontalScroll(horizontalScrollState)
             ) {
-                column.header(this, headerState)
+                TheoTableHeaderCells(
+                    columns = columns,
+                    columnWidths = columnWidths,
+                    range = columnLayout.scrollable,
+                    state = state,
+                    sortingEnabled = sortingEnabled,
+                    headerBackground = headerBackground,
+                    borderColor = borderColor,
+                    cellPadding = cellPadding,
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun <T, K> TheoTableHeaderCells(
+    columns: List<TheoTableColumn<T>>,
+    columnWidths: List<Dp>,
+    range: TheoTableColumnRange,
+    state: TheoTableState<K>,
+    sortingEnabled: Boolean,
+    headerBackground: Color,
+    borderColor: Color,
+    cellPadding: PaddingValues,
+) {
+    for(index in range.startIndex until range.endIndex) {
+        val column = columns[index]
+        val coreColumn = remember(column) { column.asCoreColumn() }
+        val sortSpec = state.sort.specs.firstOrNull { it.columnId == column.id }
+        val isSortable = sortingEnabled && column.sortable && column.comparator != null
+
+        val headerState = TheoTableHeaderState(
+            isSorted = sortingEnabled && sortSpec != null,
+            sortDirection = if(sortingEnabled) sortSpec?.direction else null,
+            sortable = isSortable,
+            sortingEnabled = sortingEnabled,
+        )
+
+        Box(
+            modifier = Modifier
+                .width(columnWidths[index])
+                .height(TheoTableDefaults.HeaderHeight)
+                .background(column.headerBackground ?: headerBackground)
+                .border(width = 0.5.dp, color = borderColor)
+                .clickable(enabled = isSortable) {
+                    state.toggleSort(coreColumn)
+                }
+                .padding(cellPadding),
+            contentAlignment = column.headerAlignment,
+        ) {
+            column.header(this, headerState)
         }
     }
 }
@@ -189,6 +272,9 @@ private fun <T> TheoTableRow(
     row: T,
     columns: List<TheoTableColumn<T>>,
     columnWidths: List<Dp>,
+    columnLayout: TheoTableColumnLayout,
+    horizontalScrollState: ScrollState,
+    scrollableViewportWidth: Dp,
     selectable: Boolean,
     selected: Boolean,
     cellBackground: Color,
@@ -204,25 +290,82 @@ private fun <T> TheoTableRow(
             .background(if(selected) selectedRowBackground else Color.Transparent)
             .clickable(enabled = selectable, onClick = onClick),
     ) {
-        columns.forEachIndexed { index, column ->
-            val resolvedCellBackground = if(selected) {
-                selectedRowBackground
-            } else {
-                column.cellBackground ?: cellBackground
-            }
+        TheoTableRowCells(
+            row = row,
+            columns = columns,
+            columnWidths = columnWidths,
+            range = columnLayout.frozen,
+            selected = selected,
+            cellBackground = cellBackground,
+            selectedRowBackground = selectedRowBackground,
+            borderColor = borderColor,
+            cellPadding = cellPadding,
+        )
 
-            Box(
+        if(columnLayout.hasScrollableColumns) {
+            Row(
                 modifier = Modifier
-                    .width(columnWidths[index])
+                    .width(scrollableViewportWidth)
                     .fillMaxHeight()
-                    .defaultMinSize(minHeight = TheoTableDefaults.RowMinHeight)
-                    .background(resolvedCellBackground)
-                    .border(width = 0.5.dp, color = borderColor)
-                    .padding(cellPadding),
-                contentAlignment = column.cellAlignment,
+                    .horizontalScroll(horizontalScrollState),
             ) {
-                column.cell(this, row)
+                TheoTableRowCells(
+                    row = row,
+                    columns = columns,
+                    columnWidths = columnWidths,
+                    range = columnLayout.scrollable,
+                    selected = selected,
+                    cellBackground = cellBackground,
+                    selectedRowBackground = selectedRowBackground,
+                    borderColor = borderColor,
+                    cellPadding = cellPadding,
+                )
             }
         }
     }
+}
+
+@Composable
+private fun <T> TheoTableRowCells(
+    row: T,
+    columns: List<TheoTableColumn<T>>,
+    columnWidths: List<Dp>,
+    range: TheoTableColumnRange,
+    selected: Boolean,
+    cellBackground: Color,
+    selectedRowBackground: Color,
+    borderColor: Color,
+    cellPadding: PaddingValues,
+) {
+    for(index in range.startIndex until range.endIndex) {
+        val column = columns[index]
+        val resolvedCellBackground = if(selected) {
+            selectedRowBackground
+        } else {
+            column.cellBackground ?: cellBackground
+        }
+
+        Box(
+            modifier = Modifier
+                .width(columnWidths[index])
+                .fillMaxHeight()
+                .defaultMinSize(minHeight = TheoTableDefaults.RowMinHeight)
+                .background(resolvedCellBackground)
+                .border(width = 0.5.dp, color = borderColor)
+                .padding(cellPadding),
+            contentAlignment = column.cellAlignment,
+        ) {
+            column.cell(this, row)
+        }
+    }
+}
+
+private fun List<Dp>.sumRange(range: TheoTableColumnRange): Dp {
+    var sum = 0.dp
+
+    for(index in range.startIndex until range.endIndex) {
+        sum += this[index]
+    }
+
+    return sum
 }
