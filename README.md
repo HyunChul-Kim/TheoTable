@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.hyunchul-kim:theotable-compose:0.1.0")
+    implementation("io.github.hyunchul-kim:theotable-compose:0.1.1")
 }
 ```
 
@@ -24,7 +24,7 @@ Use `theotable-core` directly only when you need the non-UI table logic without 
 
 ```kotlin
 dependencies {
-    implementation("io.github.hyunchul-kim:theotable-core:0.1.0")
+    implementation("io.github.hyunchul-kim:theotable-core:0.1.1")
 }
 ```
 
