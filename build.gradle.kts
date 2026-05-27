@@ -9,7 +9,7 @@ plugins {
 
 subprojects {
     group = providers.gradleProperty("theoTableGroup").getOrElse("io.github.hyunchul-kim")
-    version = providers.gradleProperty("theoTableVersion").getOrElse("0.1.1")
+    version = providers.gradleProperty("theoTableVersion").getOrElse("0.2.0")
     plugins.withId("signing") {
         extensions.configure<SigningExtension>("signing") {
             useGpgCmd()
