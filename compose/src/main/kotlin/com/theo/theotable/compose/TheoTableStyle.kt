@@ -32,4 +32,50 @@ data class TheoTableDividerColors(
     val headerHorizontal: Color = TheoTableDefaults.BorderColor,
     val cellVertical: Color = TheoTableDefaults.BorderColor,
     val cellHorizontal: Color = TheoTableDefaults.BorderColor,
-)
+) {
+    companion object {
+        val None: TheoTableDividerColors = TheoTableDividerColors(
+            border = Color.Transparent,
+            headerVertical = Color.Transparent,
+            headerHorizontal = Color.Transparent,
+            cellVertical = Color.Transparent,
+            cellHorizontal = Color.Transparent,
+        )
+
+        fun all(color: Color = TheoTableDefaults.BorderColor) = TheoTableDividerColors(
+            border = color,
+            headerVertical = color,
+            headerHorizontal = color,
+            cellVertical = color,
+            cellHorizontal = color,
+        )
+
+        fun inner(color: Color = TheoTableDefaults.BorderColor) = TheoTableDividerColors(
+            border = Color.Transparent,
+            headerVertical = color,
+            headerHorizontal = color,
+            cellVertical = color,
+            cellHorizontal = color,
+        )
+
+        fun onlyBorder(color: Color = TheoTableDefaults.BorderColor): TheoTableDividerColors {
+            return None.copy(border = color)
+        }
+
+        fun onlyHeaderVertical(color: Color = TheoTableDefaults.BorderColor): TheoTableDividerColors {
+            return None.copy(headerVertical = color)
+        }
+
+        fun onlyHeaderHorizontal(color: Color = TheoTableDefaults.BorderColor): TheoTableDividerColors {
+            return None.copy(headerHorizontal = color)
+        }
+
+        fun onlyCellVertical(color: Color = TheoTableDefaults.BorderColor): TheoTableDividerColors {
+            return None.copy(cellVertical = color)
+        }
+
+        fun onlyCellHorizontal(color: Color = TheoTableDefaults.BorderColor): TheoTableDividerColors {
+            return None.copy(cellHorizontal = color)
+        }
+    }
+}
