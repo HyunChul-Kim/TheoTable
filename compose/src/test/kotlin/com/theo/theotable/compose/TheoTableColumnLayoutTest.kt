@@ -1,5 +1,6 @@
 package com.theo.theotable.compose
 
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -65,6 +66,106 @@ class TheoTableColumnLayoutTest {
             resolveTheoTableColumnLayout(
                 columnCount = -1,
                 frozenColumnCount = 0,
+            )
+        }
+    }
+
+    @Test
+    fun resolveContentPadding_placesBothSidesInScrollableAreaWhenThereAreNoFrozenColumns() {
+        val layout = resolveTheoTableColumnLayout(
+            columnCount = 3,
+            frozenColumnCount = 0,
+        )
+
+        val paddingLayout = resolveTheoTableContentPaddingLayout(
+            columnLayout = layout,
+            startPadding = 12.dp,
+            endPadding = 20.dp,
+        )
+
+        assertEquals(0.dp, paddingLayout.frozenStart)
+        assertEquals(0.dp, paddingLayout.frozenEnd)
+        assertEquals(12.dp, paddingLayout.scrollableStart)
+        assertEquals(20.dp, paddingLayout.scrollableEnd)
+    }
+
+    @Test
+    fun resolveContentPadding_splitsPaddingBetweenFrozenAndScrollableAreas() {
+        val layout = resolveTheoTableColumnLayout(
+            columnCount = 5,
+            frozenColumnCount = 2,
+        )
+
+        val paddingLayout = resolveTheoTableContentPaddingLayout(
+            columnLayout = layout,
+            startPadding = 12.dp,
+            endPadding = 20.dp,
+        )
+
+        assertEquals(12.dp, paddingLayout.frozenStart)
+        assertEquals(0.dp, paddingLayout.frozenEnd)
+        assertEquals(0.dp, paddingLayout.scrollableStart)
+        assertEquals(20.dp, paddingLayout.scrollableEnd)
+    }
+
+    @Test
+    fun resolveContentPadding_placesBothSidesInFrozenAreaWhenAllColumnsAreFrozen() {
+        val layout = resolveTheoTableColumnLayout(
+            columnCount = 3,
+            frozenColumnCount = 3,
+        )
+
+        val paddingLayout = resolveTheoTableContentPaddingLayout(
+            columnLayout = layout,
+            startPadding = 12.dp,
+            endPadding = 20.dp,
+        )
+
+        assertEquals(12.dp, paddingLayout.frozenStart)
+        assertEquals(20.dp, paddingLayout.frozenEnd)
+        assertEquals(0.dp, paddingLayout.scrollableStart)
+        assertEquals(0.dp, paddingLayout.scrollableEnd)
+    }
+
+    @Test
+    fun resolveContentPadding_ignoresHorizontalPaddingWhenThereAreNoColumns() {
+        val layout = resolveTheoTableColumnLayout(
+            columnCount = 0,
+            frozenColumnCount = 0,
+        )
+
+        val paddingLayout = resolveTheoTableContentPaddingLayout(
+            columnLayout = layout,
+            startPadding = 12.dp,
+            endPadding = 20.dp,
+        )
+
+        assertEquals(0.dp, paddingLayout.frozenStart)
+        assertEquals(0.dp, paddingLayout.frozenEnd)
+        assertEquals(0.dp, paddingLayout.scrollableStart)
+        assertEquals(0.dp, paddingLayout.scrollableEnd)
+    }
+
+    @Test
+    fun resolveContentPadding_rejectsNegativePadding() {
+        val layout = resolveTheoTableColumnLayout(
+            columnCount = 1,
+            frozenColumnCount = 0,
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            resolveTheoTableContentPaddingLayout(
+                columnLayout = layout,
+                startPadding = (-1).dp,
+                endPadding = 0.dp,
+            )
+        }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            resolveTheoTableContentPaddingLayout(
+                columnLayout = layout,
+                startPadding = 0.dp,
+                endPadding = (-1).dp,
             )
         }
     }

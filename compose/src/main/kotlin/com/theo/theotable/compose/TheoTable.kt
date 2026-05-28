@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -28,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -48,6 +52,7 @@ fun <T, K> TheoTable(
     verticalScrollEnabled: Boolean = true,
     overscrollEnabled: Boolean = false,
     frozenColumnCount: Int = 0,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     cellPadding: PaddingValues = PaddingValues(
         horizontal = TheoTableDefaults.CellHorizontalPadding,
         vertical = TheoTableDefaults.CellVerticalPadding,
@@ -64,6 +69,7 @@ fun <T, K> TheoTable(
         verticalScrollEnabled = verticalScrollEnabled,
         overscrollEnabled = overscrollEnabled,
         frozenColumnCount = frozenColumnCount,
+        contentPadding = contentPadding,
         textStyle = style.text.base,
         headerTextStyle = style.text.header,
         cellTextStyle = style.text.cell,
@@ -101,6 +107,7 @@ fun <T, K> TheoTable(
         vertical = borderColor,
         horizontal = borderColor,
     ),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     cellPadding: PaddingValues = PaddingValues(
         horizontal = TheoTableDefaults.CellHorizontalPadding,
         vertical = TheoTableDefaults.CellVerticalPadding,
@@ -144,6 +151,18 @@ fun <T, K> TheoTable(
             frozenColumnCount = frozenColumnCount,
         )
     }
+    val layoutDirection = LocalLayoutDirection.current
+    val contentStartPadding = contentPadding.calculateStartPadding(layoutDirection)
+    val contentEndPadding = contentPadding.calculateEndPadding(layoutDirection)
+    val contentTopPadding = contentPadding.calculateTopPadding()
+    val contentBottomPadding = contentPadding.calculateBottomPadding()
+    val contentPaddingLayout = remember(columnLayout, contentStartPadding, contentEndPadding) {
+        resolveTheoTableContentPaddingLayout(
+            columnLayout = columnLayout,
+            startPadding = contentStartPadding,
+            endPadding = contentEndPadding,
+        )
+    }
 
     CompositionLocalProvider(
         LocalTheoTableTextStyles provides TheoTableTextStyles(
@@ -162,12 +181,18 @@ fun <T, K> TheoTable(
         ) {
             val frozenWidth = columnWidths.sumRange(columnLayout.frozen)
             val scrollableWidth = columnWidths.sumRange(columnLayout.scrollable)
-            val remainingWidth = maxWidth - frozenWidth
+            val frozenContentWidth = frozenWidth +
+                    contentPaddingLayout.frozenStart +
+                    contentPaddingLayout.frozenEnd
+            val scrollableContentWidth = scrollableWidth +
+                    contentPaddingLayout.scrollableStart +
+                    contentPaddingLayout.scrollableEnd
+            val remainingWidth = maxWidth - frozenContentWidth
 
             val scrollableViewportWidth = when {
                 !columnLayout.hasScrollableColumns -> 0.dp
                 remainingWidth <= 0.dp -> 0.dp
-                scrollableWidth < remainingWidth -> scrollableWidth
+                scrollableContentWidth < remainingWidth -> scrollableContentWidth
                 else -> remainingWidth
             }
 
@@ -180,6 +205,7 @@ fun <T, K> TheoTable(
                     columnLayout = columnLayout,
                     horizontalScrollState = horizontalScrollState,
                     scrollableViewportWidth = scrollableViewportWidth,
+                    contentPaddingLayout = contentPaddingLayout,
                     headerBackground = headerBackground,
                     dividerColors = dividerColors,
                     cellPadding = cellPadding,
@@ -192,6 +218,10 @@ fun <T, K> TheoTable(
                         Modifier
                     },
                 ) {
+                    if(contentTopPadding > 0.dp) {
+                        Spacer(modifier = Modifier.height(contentTopPadding))
+                    }
+
                     snapshot.rows.forEachIndexed { index, row ->
                         val key = snapshot.rowKeys[index]
                         val selectable = selectionMode != SelectionMode.None
@@ -204,6 +234,7 @@ fun <T, K> TheoTable(
                             columnLayout = columnLayout,
                             horizontalScrollState = horizontalScrollState,
                             scrollableViewportWidth = scrollableViewportWidth,
+                            contentPaddingLayout = contentPaddingLayout,
                             selectable = selectable,
                             selected = selected,
                             cellBackground = cellBackground,
@@ -217,6 +248,10 @@ fun <T, K> TheoTable(
                                 )
                             },
                         )
+                    }
+
+                    if(contentBottomPadding > 0.dp) {
+                        Spacer(modifier = Modifier.height(contentBottomPadding))
                     }
                 }
             }
@@ -233,6 +268,7 @@ private fun <T, K> TheoTableHeader(
     columnLayout: TheoTableColumnLayout,
     horizontalScrollState: ScrollState,
     scrollableViewportWidth: Dp,
+    contentPaddingLayout: TheoTableContentPaddingLayout,
     headerBackground: Color,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
@@ -246,6 +282,8 @@ private fun <T, K> TheoTableHeader(
             columns = columns,
             columnWidths = columnWidths,
             range = columnLayout.frozen,
+            startContentPadding = contentPaddingLayout.frozenStart,
+            endContentPadding = contentPaddingLayout.frozenEnd,
             state = state,
             sortingEnabled = sortingEnabled,
             headerBackground = headerBackground,
@@ -263,6 +301,8 @@ private fun <T, K> TheoTableHeader(
                     columns = columns,
                     columnWidths = columnWidths,
                     range = columnLayout.scrollable,
+                    startContentPadding = contentPaddingLayout.scrollableStart,
+                    endContentPadding = contentPaddingLayout.scrollableEnd,
                     state = state,
                     sortingEnabled = sortingEnabled,
                     headerBackground = headerBackground,
@@ -279,12 +319,18 @@ private fun <T, K> TheoTableHeaderCells(
     columns: List<TheoTableColumn<T>>,
     columnWidths: List<Dp>,
     range: TheoTableColumnRange,
+    startContentPadding: Dp,
+    endContentPadding: Dp,
     state: TheoTableState<K>,
     sortingEnabled: Boolean,
     headerBackground: Color,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
+    if(startContentPadding > 0.dp) {
+        Spacer(modifier = Modifier.width(startContentPadding))
+    }
+
     for(index in range.startIndex until range.endIndex) {
         val column = columns[index]
         val coreColumn = remember(column) { column.asCoreColumn() }
@@ -318,6 +364,10 @@ private fun <T, K> TheoTableHeaderCells(
             column.header(this, headerState)
         }
     }
+
+    if(endContentPadding > 0.dp) {
+        Spacer(modifier = Modifier.width(endContentPadding))
+    }
 }
 
 @Composable
@@ -328,6 +378,7 @@ private fun <T> TheoTableRow(
     columnLayout: TheoTableColumnLayout,
     horizontalScrollState: ScrollState,
     scrollableViewportWidth: Dp,
+    contentPaddingLayout: TheoTableContentPaddingLayout,
     selectable: Boolean,
     selected: Boolean,
     cellBackground: Color,
@@ -348,6 +399,8 @@ private fun <T> TheoTableRow(
             columns = columns,
             columnWidths = columnWidths,
             range = columnLayout.frozen,
+            startContentPadding = contentPaddingLayout.frozenStart,
+            endContentPadding = contentPaddingLayout.frozenEnd,
             selected = selected,
             cellBackground = cellBackground,
             selectedRowBackground = selectedRowBackground,
@@ -367,6 +420,8 @@ private fun <T> TheoTableRow(
                     columns = columns,
                     columnWidths = columnWidths,
                     range = columnLayout.scrollable,
+                    startContentPadding = contentPaddingLayout.scrollableStart,
+                    endContentPadding = contentPaddingLayout.scrollableEnd,
                     selected = selected,
                     cellBackground = cellBackground,
                     selectedRowBackground = selectedRowBackground,
@@ -384,12 +439,18 @@ private fun <T> TheoTableRowCells(
     columns: List<TheoTableColumn<T>>,
     columnWidths: List<Dp>,
     range: TheoTableColumnRange,
+    startContentPadding: Dp,
+    endContentPadding: Dp,
     selected: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
+    if(startContentPadding > 0.dp) {
+        Spacer(modifier = Modifier.width(startContentPadding))
+    }
+
     for(index in range.startIndex until range.endIndex) {
         val column = columns[index]
         val resolvedCellBackground = if(selected) {
@@ -415,6 +476,10 @@ private fun <T> TheoTableRowCells(
         ) {
             column.cell(this, row)
         }
+    }
+
+    if(endContentPadding > 0.dp) {
+        Spacer(modifier = Modifier.width(endContentPadding))
     }
 }
 

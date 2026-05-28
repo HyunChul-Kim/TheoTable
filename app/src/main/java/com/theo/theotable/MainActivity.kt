@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -230,6 +231,7 @@ fun TableSample(modifier: Modifier = Modifier) {
     var cellTextSize by remember { mutableStateOf(12f) }
     var tableHeaderBackground by remember { mutableStateOf(true) }
     var tableCellBackground by remember { mutableStateOf(true) }
+    var contentPaddingDp by remember { mutableStateOf(0f) }
 
     val columnOptions = remember {
         dessertColumnSpecs
@@ -296,6 +298,7 @@ fun TableSample(modifier: Modifier = Modifier) {
             selectionMode = selectionMode,
             sortingEnabled = sortingEnabled,
             frozenColumnCount = frozenColumnCount,
+            contentPadding = PaddingValues(horizontal = contentPaddingDp.dp),
         )
     }
 
@@ -342,8 +345,10 @@ fun TableSample(modifier: Modifier = Modifier) {
                     frozenColumnCount = frozenColumnCount,
                     maxFrozenColumnCount = columns.size,
                     onFrozenColumnCountChange = { frozenColumnCount = it },
+                    contentPaddingDp = contentPaddingDp,
+                    onContentPaddingDpChange = { contentPaddingDp = it },
                     dividerOptions = dividerOptions,
-                    onDividerOptionsChange = { dividerOptions = it }
+                    onDividerOptionsChange = { dividerOptions = it },
                 )
 
                 HorizontalDivider()
@@ -379,6 +384,8 @@ private fun TableOptionControls(
     frozenColumnCount: Int,
     maxFrozenColumnCount: Int,
     onFrozenColumnCountChange: (Int) -> Unit,
+    contentPaddingDp: Float,
+    onContentPaddingDpChange: (Float) -> Unit,
     dividerOptions: DemoDividerOptions,
     onDividerOptionsChange: (DemoDividerOptions) -> Unit,
 ) {
@@ -402,6 +409,13 @@ private fun TableOptionControls(
             },
             valueRange = 0f..maxFrozenColumnCount.toFloat(),
             steps = (maxFrozenColumnCount - 1).coerceAtLeast(0),
+        )
+
+        Text("Content padding: ${contentPaddingDp.toInt()}dp")
+        Slider(
+            value = contentPaddingDp,
+            onValueChange = onContentPaddingDpChange,
+            valueRange = 0f..48f,
         )
 
         HorizontalDivider()
