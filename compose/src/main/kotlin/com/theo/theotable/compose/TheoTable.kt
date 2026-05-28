@@ -197,6 +197,10 @@ fun <T, K> TheoTable(
             }
 
             Column {
+                if(contentTopPadding > 0.dp) {
+                    Spacer(modifier = Modifier.height(contentTopPadding))
+                }
+
                 TheoTableHeader(
                     columns = columns,
                     columnWidths = columnWidths,
@@ -218,14 +222,11 @@ fun <T, K> TheoTable(
                         Modifier
                     },
                 ) {
-                    if(contentTopPadding > 0.dp) {
-                        Spacer(modifier = Modifier.height(contentTopPadding))
-                    }
-
                     snapshot.rows.forEachIndexed { index, row ->
                         val key = snapshot.rowKeys[index]
                         val selectable = selectionMode != SelectionMode.None
                         val selected = selectable && state.selection.isSelected(key)
+                        val isLastRow = index == snapshot.rows.lastIndex
 
                         TheoTableRow(
                             row = row,
@@ -237,6 +238,7 @@ fun <T, K> TheoTable(
                             contentPaddingLayout = contentPaddingLayout,
                             selectable = selectable,
                             selected = selected,
+                            isLastRow = isLastRow,
                             cellBackground = cellBackground,
                             selectedRowBackground = selectedRowBackground,
                             dividerColors = dividerColors,
@@ -275,8 +277,7 @@ private fun <T, K> TheoTableHeader(
 ) {
     Row(
         modifier = Modifier
-            .height(TheoTableDefaults.HeaderHeight)
-            .background(headerBackground),
+            .height(TheoTableDefaults.HeaderHeight),
     ) {
         TheoTableHeaderCells(
             columns = columns,
@@ -336,6 +337,7 @@ private fun <T, K> TheoTableHeaderCells(
         val coreColumn = remember(column) { column.asCoreColumn() }
         val sortSpec = state.sort.specs.firstOrNull { it.columnId == column.id }
         val isSortable = sortingEnabled && column.sortable && column.comparator != null
+        val hasNextColumn = index < columns.lastIndex
 
         val headerState = TheoTableHeaderState(
             isSorted = sortingEnabled && sortSpec != null,
@@ -353,6 +355,8 @@ private fun <T, K> TheoTableHeaderCells(
                     Modifier.theoTableDivider(
                         verticalColor = dividerColors.headerVertical,
                         horizontalColor = dividerColors.headerHorizontal,
+                        drawVertical = hasNextColumn,
+                        drawHorizontal = true,
                     )
                 )
                 .clickable(enabled = isSortable) {
@@ -381,6 +385,7 @@ private fun <T> TheoTableRow(
     contentPaddingLayout: TheoTableContentPaddingLayout,
     selectable: Boolean,
     selected: Boolean,
+    isLastRow: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
     dividerColors: TheoTableDividerColors,
@@ -391,7 +396,6 @@ private fun <T> TheoTableRow(
         modifier = Modifier
             .height(IntrinsicSize.Min)
             .defaultMinSize(minHeight = TheoTableDefaults.RowMinHeight)
-            .background(if(selected) selectedRowBackground else Color.Transparent)
             .clickable(enabled = selectable, onClick = onClick),
     ) {
         TheoTableRowCells(
@@ -402,6 +406,7 @@ private fun <T> TheoTableRow(
             startContentPadding = contentPaddingLayout.frozenStart,
             endContentPadding = contentPaddingLayout.frozenEnd,
             selected = selected,
+            isLastRow = isLastRow,
             cellBackground = cellBackground,
             selectedRowBackground = selectedRowBackground,
             dividerColors = dividerColors,
@@ -423,6 +428,7 @@ private fun <T> TheoTableRow(
                     startContentPadding = contentPaddingLayout.scrollableStart,
                     endContentPadding = contentPaddingLayout.scrollableEnd,
                     selected = selected,
+                    isLastRow = isLastRow,
                     cellBackground = cellBackground,
                     selectedRowBackground = selectedRowBackground,
                     dividerColors = dividerColors,
@@ -442,6 +448,7 @@ private fun <T> TheoTableRowCells(
     startContentPadding: Dp,
     endContentPadding: Dp,
     selected: Boolean,
+    isLastRow: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
     dividerColors: TheoTableDividerColors,
@@ -453,6 +460,7 @@ private fun <T> TheoTableRowCells(
 
     for(index in range.startIndex until range.endIndex) {
         val column = columns[index]
+        val hasNextColumn = index < columns.lastIndex
         val resolvedCellBackground = if(selected) {
             selectedRowBackground
         } else {
@@ -469,6 +477,8 @@ private fun <T> TheoTableRowCells(
                     Modifier.theoTableDivider(
                         verticalColor = dividerColors.cellVertical,
                         horizontalColor = dividerColors.cellHorizontal,
+                        drawVertical = hasNextColumn,
+                        drawHorizontal = !isLastRow
                     )
                 )
                 .padding(cellPadding),
@@ -486,24 +496,30 @@ private fun <T> TheoTableRowCells(
 private fun Modifier.theoTableDivider(
     verticalColor: Color,
     horizontalColor: Color,
+    drawVertical: Boolean,
+    drawHorizontal: Boolean,
     width: Dp = 0.5.dp,
 ): Modifier {
     return drawBehind {
         val strokeWidth = width.toPx()
 
-        drawLine(
-            color = verticalColor,
-            start = Offset(size.width - strokeWidth / 2f, 0f),
-            end = Offset(size.width - strokeWidth / 2f, size.height),
-            strokeWidth = strokeWidth,
-        )
+        if(drawVertical) {
+            drawLine(
+                color = verticalColor,
+                start = Offset(size.width - strokeWidth / 2f, 0f),
+                end = Offset(size.width - strokeWidth / 2f, size.height),
+                strokeWidth = strokeWidth,
+            )
+        }
 
-        drawLine(
-            color = horizontalColor,
-            start = Offset(0f, size.height - strokeWidth / 2f),
-            end = Offset(size.width, size.height - strokeWidth / 2f),
-            strokeWidth = strokeWidth,
-        )
+        if(drawHorizontal) {
+            drawLine(
+                color = horizontalColor,
+                start = Offset(0f, size.height - strokeWidth / 2f),
+                end = Offset(size.width, size.height - strokeWidth / 2f),
+                strokeWidth = strokeWidth,
+            )
+        }
     }
 }
 
