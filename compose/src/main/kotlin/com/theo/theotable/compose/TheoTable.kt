@@ -25,6 +25,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -32,6 +34,47 @@ import androidx.compose.ui.unit.dp
 import com.theo.theotable.core.SelectionMode
 import com.theo.theotable.core.TableEngine
 import com.theo.theotable.core.TableSort
+
+@Composable
+fun <T, K> TheoTable(
+    rows: List<T>,
+    columns: List<TheoTableColumn<T>>,
+    rowKey: (T) -> K,
+    style: TheoTableStyle,
+    modifier: Modifier = Modifier,
+    state: TheoTableState<K> = rememberTheoTableState(),
+    selectionMode: SelectionMode = SelectionMode.None,
+    sortingEnabled: Boolean = true,
+    verticalScrollEnabled: Boolean = true,
+    overscrollEnabled: Boolean = false,
+    frozenColumnCount: Int = 0,
+    cellPadding: PaddingValues = PaddingValues(
+        horizontal = TheoTableDefaults.CellHorizontalPadding,
+        vertical = TheoTableDefaults.CellVerticalPadding,
+    ),
+) {
+    TheoTable(
+        rows = rows,
+        columns = columns,
+        rowKey = rowKey,
+        modifier = modifier,
+        state = state,
+        selectionMode = selectionMode,
+        sortingEnabled = sortingEnabled,
+        verticalScrollEnabled = verticalScrollEnabled,
+        overscrollEnabled = overscrollEnabled,
+        frozenColumnCount = frozenColumnCount,
+        textStyle = style.text.base,
+        headerTextStyle = style.text.header,
+        cellTextStyle = style.text.cell,
+        headerBackground = style.background.header,
+        cellBackground = style.background.cell,
+        selectedRowBackground = style.background.selectedRow,
+        borderColor = style.divider.border,
+        dividerColors = style.divider,
+        cellPadding = cellPadding,
+    )
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -53,6 +96,11 @@ fun <T, K> TheoTable(
     cellBackground: Color = TheoTableDefaults.CellBackground,
     selectedRowBackground: Color = TheoTableDefaults.SelectedRowBackground,
     borderColor: Color = TheoTableDefaults.BorderColor,
+    dividerColors: TheoTableDividerColors = TheoTableDefaults.dividerColors(
+        border = borderColor,
+        vertical = borderColor,
+        horizontal = borderColor,
+    ),
     cellPadding: PaddingValues = PaddingValues(
         horizontal = TheoTableDefaults.CellHorizontalPadding,
         vertical = TheoTableDefaults.CellVerticalPadding,
@@ -110,7 +158,7 @@ fun <T, K> TheoTable(
     ) {
         BoxWithConstraints(
             modifier = modifier
-                .border(width = 1.dp, color = borderColor),
+                .border(width = 1.dp, color = dividerColors.border),
         ) {
             val frozenWidth = columnWidths.sumRange(columnLayout.frozen)
             val scrollableWidth = columnWidths.sumRange(columnLayout.scrollable)
@@ -133,7 +181,7 @@ fun <T, K> TheoTable(
                     horizontalScrollState = horizontalScrollState,
                     scrollableViewportWidth = scrollableViewportWidth,
                     headerBackground = headerBackground,
-                    borderColor = borderColor,
+                    dividerColors = dividerColors,
                     cellPadding = cellPadding,
                 )
 
@@ -160,7 +208,7 @@ fun <T, K> TheoTable(
                             selected = selected,
                             cellBackground = cellBackground,
                             selectedRowBackground = selectedRowBackground,
-                            borderColor = borderColor,
+                            dividerColors = dividerColors,
                             cellPadding = cellPadding,
                             onClick = {
                                 state.toggleSelection(
@@ -186,7 +234,7 @@ private fun <T, K> TheoTableHeader(
     horizontalScrollState: ScrollState,
     scrollableViewportWidth: Dp,
     headerBackground: Color,
-    borderColor: Color,
+    dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
     Row(
@@ -201,7 +249,7 @@ private fun <T, K> TheoTableHeader(
             state = state,
             sortingEnabled = sortingEnabled,
             headerBackground = headerBackground,
-            borderColor = borderColor,
+            dividerColors = dividerColors,
             cellPadding = cellPadding,
         )
 
@@ -218,7 +266,7 @@ private fun <T, K> TheoTableHeader(
                     state = state,
                     sortingEnabled = sortingEnabled,
                     headerBackground = headerBackground,
-                    borderColor = borderColor,
+                    dividerColors = dividerColors,
                     cellPadding = cellPadding,
                 )
             }
@@ -234,7 +282,7 @@ private fun <T, K> TheoTableHeaderCells(
     state: TheoTableState<K>,
     sortingEnabled: Boolean,
     headerBackground: Color,
-    borderColor: Color,
+    dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
     for(index in range.startIndex until range.endIndex) {
@@ -255,7 +303,12 @@ private fun <T, K> TheoTableHeaderCells(
                 .width(columnWidths[index])
                 .height(TheoTableDefaults.HeaderHeight)
                 .background(column.headerBackground ?: headerBackground)
-                .border(width = 0.5.dp, color = borderColor)
+                .then(
+                    Modifier.theoTableDivider(
+                        verticalColor = dividerColors.headerVertical,
+                        horizontalColor = dividerColors.headerHorizontal,
+                    )
+                )
                 .clickable(enabled = isSortable) {
                     state.toggleSort(coreColumn)
                 }
@@ -279,7 +332,7 @@ private fun <T> TheoTableRow(
     selected: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
-    borderColor: Color,
+    dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
     onClick: () -> Unit,
 ) {
@@ -298,7 +351,7 @@ private fun <T> TheoTableRow(
             selected = selected,
             cellBackground = cellBackground,
             selectedRowBackground = selectedRowBackground,
-            borderColor = borderColor,
+            dividerColors = dividerColors,
             cellPadding = cellPadding,
         )
 
@@ -317,7 +370,7 @@ private fun <T> TheoTableRow(
                     selected = selected,
                     cellBackground = cellBackground,
                     selectedRowBackground = selectedRowBackground,
-                    borderColor = borderColor,
+                    dividerColors = dividerColors,
                     cellPadding = cellPadding,
                 )
             }
@@ -334,7 +387,7 @@ private fun <T> TheoTableRowCells(
     selected: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
-    borderColor: Color,
+    dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
     for(index in range.startIndex until range.endIndex) {
@@ -351,12 +404,41 @@ private fun <T> TheoTableRowCells(
                 .fillMaxHeight()
                 .defaultMinSize(minHeight = TheoTableDefaults.RowMinHeight)
                 .background(resolvedCellBackground)
-                .border(width = 0.5.dp, color = borderColor)
+                .then(
+                    Modifier.theoTableDivider(
+                        verticalColor = dividerColors.cellVertical,
+                        horizontalColor = dividerColors.cellHorizontal,
+                    )
+                )
                 .padding(cellPadding),
             contentAlignment = column.cellAlignment,
         ) {
             column.cell(this, row)
         }
+    }
+}
+
+private fun Modifier.theoTableDivider(
+    verticalColor: Color,
+    horizontalColor: Color,
+    width: Dp = 0.5.dp,
+): Modifier {
+    return drawBehind {
+        val strokeWidth = width.toPx()
+
+        drawLine(
+            color = verticalColor,
+            start = Offset(size.width - strokeWidth / 2f, 0f),
+            end = Offset(size.width - strokeWidth / 2f, size.height),
+            strokeWidth = strokeWidth,
+        )
+
+        drawLine(
+            color = horizontalColor,
+            start = Offset(0f, size.height - strokeWidth / 2f),
+            end = Offset(size.width, size.height - strokeWidth / 2f),
+            strokeWidth = strokeWidth,
+        )
     }
 }
 

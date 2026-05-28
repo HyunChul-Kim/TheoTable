@@ -42,7 +42,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.theo.theotable.compose.TheoTable
+import com.theo.theotable.compose.TheoTableBackgroundStyle
 import com.theo.theotable.compose.TheoTableColumn
+import com.theo.theotable.compose.TheoTableDividerColors
+import com.theo.theotable.compose.TheoTableStyle
+import com.theo.theotable.compose.TheoTableTextStyle
 import com.theo.theotable.compose.rememberTheoTableState
 import com.theo.theotable.compose.theoTextColumn
 import com.theo.theotable.core.SelectionMode
@@ -95,6 +99,33 @@ private val sampleDesserts = listOf(
     Dessert(12, "Nougat bar with roasted nuts", 360, 19.0, 43, 3.0, 210, 4100),
     Dessert(13, "Oreo", 437, 18.0, 63, 4.0, 203, 3000),
 )
+
+private data class DemoDividerOptions(
+    val border: Boolean = true,
+    val headerVertical: Boolean = true,
+    val headerHorizontal: Boolean = true,
+    val cellVertical: Boolean = true,
+    val cellHorizontal: Boolean = true,
+    val accentColors: Boolean = true,
+)
+
+private fun DemoDividerOptions.toDividerColors(): TheoTableDividerColors {
+    val defaultColor = Color(0xFFE0E0E0)
+
+    val borderColor = if(accentColors) Color(0xFF6B7280) else defaultColor
+    val headerVerticalColor = if(accentColors) Color(0xFF2563EB) else defaultColor
+    val headerHorizontalColor = if(accentColors) Color(0xFF9333EA) else defaultColor
+    val cellVerticalColor = if(accentColors) Color(0xFF16A34A) else defaultColor
+    val cellHorizontalColor = if(accentColors) Color(0xFFEA580C) else defaultColor
+
+    return TheoTableDividerColors(
+        border = if(border) borderColor else Color.Transparent,
+        headerVertical = if(headerVertical) headerVerticalColor else Color.Transparent,
+        headerHorizontal = if(headerHorizontal) headerHorizontalColor else Color.Transparent,
+        cellVertical = if(cellVertical) cellVerticalColor else Color.Transparent,
+        cellHorizontal = if(cellHorizontal) cellHorizontalColor else Color.Transparent,
+    )
+}
 
 private data class DessertColumnSpec(
     val id: String,
@@ -163,7 +194,7 @@ private val dessertColumnSpecs = listOf(
     DessertColumnSpec(
         id = "price",
         title = "Price",
-        value = { "${it.price}원" },
+        value = { "${it.price}KRW" },
         comparator = compareBy { it.price },
         cellAlignment = Alignment.CenterEnd,
         headerTint = Color(0xFFEAF7EA),
@@ -206,6 +237,8 @@ fun TableSample(modifier: Modifier = Modifier) {
             .toMutableStateMap()
     }
 
+    var dividerOptions by remember { mutableStateOf(DemoDividerOptions()) }
+
     var frozenColumnCount by remember { mutableStateOf(0) }
 
     val columns = remember(columnOptions.toMap()) {
@@ -242,20 +275,27 @@ fun TableSample(modifier: Modifier = Modifier) {
             columns = columns,
             rowKey = { it.id },
             state = tableState,
+            style = TheoTableStyle(
+                text = TheoTableTextStyle(
+                    header = TextStyle(
+                        fontSize = headerTextSize.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF343434),
+                    ),
+                    cell = TextStyle(
+                        fontSize = cellTextSize.sp,
+                        color = Color(0xFF1F2937),
+                    ),
+                ),
+                background = TheoTableBackgroundStyle(
+                    header = if (tableHeaderBackground) Color(0xFFF5F5F5) else Color.Transparent,
+                    cell = if (tableCellBackground) Color.White else Color.Transparent,
+                ),
+                divider = dividerOptions.toDividerColors(),
+            ),
             selectionMode = selectionMode,
             sortingEnabled = sortingEnabled,
             frozenColumnCount = frozenColumnCount,
-            headerTextStyle = TextStyle(
-                fontSize = headerTextSize.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF343434),
-            ),
-            cellTextStyle = TextStyle(
-                fontSize = cellTextSize.sp,
-                color = Color(0xFF1F2937),
-            ),
-            headerBackground = if (tableHeaderBackground) Color(0xFFF5F5F5) else Color.Transparent,
-            cellBackground = if (tableCellBackground) Color.White else Color.Transparent,
         )
     }
 
@@ -302,6 +342,8 @@ fun TableSample(modifier: Modifier = Modifier) {
                     frozenColumnCount = frozenColumnCount,
                     maxFrozenColumnCount = columns.size,
                     onFrozenColumnCountChange = { frozenColumnCount = it },
+                    dividerOptions = dividerOptions,
+                    onDividerOptionsChange = { dividerOptions = it }
                 )
 
                 HorizontalDivider()
@@ -337,6 +379,8 @@ private fun TableOptionControls(
     frozenColumnCount: Int,
     maxFrozenColumnCount: Int,
     onFrozenColumnCountChange: (Int) -> Unit,
+    dividerOptions: DemoDividerOptions,
+    onDividerOptionsChange: (DemoDividerOptions) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Table options", fontWeight = FontWeight.Bold)
@@ -358,6 +402,13 @@ private fun TableOptionControls(
             },
             valueRange = 0f..maxFrozenColumnCount.toFloat(),
             steps = (maxFrozenColumnCount - 1).coerceAtLeast(0),
+        )
+
+        HorizontalDivider()
+
+        DividerOptionControls(
+            options = dividerOptions,
+            onChange = onDividerOptionsChange,
         )
 
 
@@ -426,6 +477,35 @@ private fun ColumnOptionControls(
         }
         OptionSwitch("Cell tint", options.cellTint) {
             onChange(options.copy(cellTint = it))
+        }
+    }
+}
+
+@Composable
+private fun DividerOptionControls(
+    options: DemoDividerOptions,
+    onChange: (DemoDividerOptions) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Dividers", fontWeight = FontWeight.Bold)
+
+        OptionSwitch("Table border", options.border) {
+            onChange(options.copy(border = it))
+        }
+        OptionSwitch("Header vertical", options.headerVertical) {
+            onChange(options.copy(headerVertical = it))
+        }
+        OptionSwitch("Header horizontal", options.headerHorizontal) {
+            onChange(options.copy(headerHorizontal = it))
+        }
+        OptionSwitch("Cell vertical", options.cellVertical) {
+            onChange(options.copy(cellVertical = it))
+        }
+        OptionSwitch("Cell horizontal", options.cellHorizontal) {
+            onChange(options.copy(cellHorizontal = it))
+        }
+        OptionSwitch("Accent divider colors", options.accentColors) {
+            onChange(options.copy(accentColors = it))
         }
     }
 }
