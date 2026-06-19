@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateMap
 import androidx.compose.ui.Alignment
@@ -226,7 +227,7 @@ fun TableSample(modifier: Modifier = Modifier) {
     val tableState = rememberTheoTableState<Int>()
 
     var sortingEnabled by remember { mutableStateOf(true) }
-    var selectionMode by remember { mutableStateOf(SelectionMode.None) }
+    var selectionMode by rememberSaveable { mutableStateOf(SelectionMode.None) }
     var headerTextSize by remember { mutableStateOf(14f) }
     var cellTextSize by remember { mutableStateOf(12f) }
     var tableHeaderBackground by remember { mutableStateOf(true) }
