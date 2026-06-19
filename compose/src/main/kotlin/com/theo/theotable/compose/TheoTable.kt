@@ -21,12 +21,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -40,7 +41,7 @@ import com.theo.theotable.core.TableEngine
 import com.theo.theotable.core.TableSort
 
 @Composable
-fun <T, K> TheoTable(
+fun <T, K: Any> TheoTable(
     rows: List<T>,
     columns: List<TheoTableColumn<T>>,
     rowKey: (T) -> K,
@@ -49,9 +50,9 @@ fun <T, K> TheoTable(
     state: TheoTableState<K> = rememberTheoTableState(),
     selectionMode: SelectionMode = SelectionMode.None,
     sortingEnabled: Boolean = true,
-    verticalScrollEnabled: Boolean = true,
     overscrollEnabled: Boolean = false,
     frozenColumnCount: Int = 0,
+    rowHeight: TheoTableRowHeight = TheoTableRowHeight.WrapContent(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
     cellPadding: PaddingValues = PaddingValues(
         horizontal = TheoTableDefaults.CellHorizontalPadding,
@@ -66,10 +67,8 @@ fun <T, K> TheoTable(
         state = state,
         selectionMode = selectionMode,
         sortingEnabled = sortingEnabled,
-        verticalScrollEnabled = verticalScrollEnabled,
         overscrollEnabled = overscrollEnabled,
         frozenColumnCount = frozenColumnCount,
-        contentPadding = contentPadding,
         textStyle = style.text.base,
         headerTextStyle = style.text.header,
         cellTextStyle = style.text.cell,
@@ -78,13 +77,15 @@ fun <T, K> TheoTable(
         selectedRowBackground = style.background.selectedRow,
         borderColor = style.divider.border,
         dividerColors = style.divider,
+        rowHeight = rowHeight,
+        contentPadding = contentPadding,
         cellPadding = cellPadding,
     )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun <T, K> TheoTable(
+fun <T, K: Any> TheoTable(
     rows: List<T>,
     columns: List<TheoTableColumn<T>>,
     rowKey: (T) -> K,
@@ -92,7 +93,6 @@ fun <T, K> TheoTable(
     state: TheoTableState<K> = rememberTheoTableState(),
     selectionMode: SelectionMode = SelectionMode.None,
     sortingEnabled: Boolean = true,
-    verticalScrollEnabled: Boolean = true,
     overscrollEnabled: Boolean = false,
     frozenColumnCount: Int = 0,
     textStyle: TextStyle = TextStyle.Default,
@@ -107,6 +107,7 @@ fun <T, K> TheoTable(
         vertical = borderColor,
         horizontal = borderColor,
     ),
+    rowHeight: TheoTableRowHeight = TheoTableRowHeight.WrapContent(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
     cellPadding: PaddingValues = PaddingValues(
         horizontal = TheoTableDefaults.CellHorizontalPadding,
@@ -143,7 +144,7 @@ fun <T, K> TheoTable(
     )
 
     val horizontalScrollState = rememberScrollState()
-    val verticalScrollState = rememberScrollState()
+    val verticalScrollState = rememberLazyListState()
 
     val columnLayout = remember(columns.size, frozenColumnCount) {
         resolveTheoTableColumnLayout(
@@ -215,14 +216,14 @@ fun <T, K> TheoTable(
                     cellPadding = cellPadding,
                 )
 
-                Column(
-                    modifier = if(verticalScrollEnabled) {
-                        Modifier.verticalScroll(verticalScrollState)
-                    } else {
-                        Modifier
-                    },
+                LazyColumn(
+                    state = verticalScrollState,
+                    modifier = Modifier.weight(1f),
                 ) {
-                    snapshot.rows.forEachIndexed { index, row ->
+                    itemsIndexed(
+                        items = snapshot.rows,
+                        key = { index, _ -> snapshot.rowKeys[index] },
+                    ) { index, row ->
                         val key = snapshot.rowKeys[index]
                         val selectable = selectionMode != SelectionMode.None
                         val selected = selectable && state.selection.isSelected(key)
@@ -234,6 +235,7 @@ fun <T, K> TheoTable(
                             columnWidths = columnWidths,
                             columnLayout = columnLayout,
                             horizontalScrollState = horizontalScrollState,
+                            rowHeight = rowHeight,
                             scrollableViewportWidth = scrollableViewportWidth,
                             contentPaddingLayout = contentPaddingLayout,
                             selectable = selectable,
@@ -253,7 +255,9 @@ fun <T, K> TheoTable(
                     }
 
                     if(contentBottomPadding > 0.dp) {
-                        Spacer(modifier = Modifier.height(contentBottomPadding))
+                        item {
+                            Spacer(modifier = Modifier.height(contentBottomPadding))
+                        }
                     }
                 }
             }
@@ -381,6 +385,7 @@ private fun <T> TheoTableRow(
     columnWidths: List<Dp>,
     columnLayout: TheoTableColumnLayout,
     horizontalScrollState: ScrollState,
+    rowHeight: TheoTableRowHeight,
     scrollableViewportWidth: Dp,
     contentPaddingLayout: TheoTableContentPaddingLayout,
     selectable: Boolean,
@@ -392,11 +397,14 @@ private fun <T> TheoTableRow(
     cellPadding: PaddingValues,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
+    val rowModifier = when(rowHeight) {
+        is TheoTableRowHeight.Fixed -> Modifier.height(rowHeight.value)
+        is TheoTableRowHeight.WrapContent -> Modifier
             .height(IntrinsicSize.Min)
-            .defaultMinSize(minHeight = TheoTableDefaults.RowMinHeight)
-            .clickable(enabled = selectable, onClick = onClick),
+            .defaultMinSize(minHeight = rowHeight.min)
+    }
+    Row(
+        modifier = rowModifier.clickable(enabled = selectable, onClick = onClick),
     ) {
         TheoTableRowCells(
             row = row,
@@ -471,7 +479,6 @@ private fun <T> TheoTableRowCells(
             modifier = Modifier
                 .width(columnWidths[index])
                 .fillMaxHeight()
-                .defaultMinSize(minHeight = TheoTableDefaults.RowMinHeight)
                 .background(resolvedCellBackground)
                 .then(
                     Modifier.theoTableDivider(

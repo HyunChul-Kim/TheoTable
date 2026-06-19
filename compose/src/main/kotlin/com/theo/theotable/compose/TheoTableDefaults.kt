@@ -11,6 +11,7 @@ object TheoTableDefaults {
     val BorderColor = Color(0xFFE0E0E0)
 
     val HeaderHeight = 44.dp
+    val RowHeight = 44.dp
     val RowMinHeight = 44.dp
     val CellHorizontalPadding = 12.dp
     val CellVerticalPadding = 8.dp

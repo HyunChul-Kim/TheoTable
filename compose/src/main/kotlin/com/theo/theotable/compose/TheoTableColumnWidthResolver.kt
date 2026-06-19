@@ -68,11 +68,22 @@ internal fun <T> rememberResolvedColumnWidths(
 
                     val rowHint = column.widthHint
                     if(rowHint != null) {
-                        candidateRows.forEach { row ->
-                            measuredPx = max(
-                                measuredPx,
-                                rowHint(row).measureWidthPx(textMeasurer, density, defaultCellTextStyle),
-                            )
+                        val measuredHintWidths = mutableMapOf<TheoTableWidthHint, Int>()
+                        val maxMeasuredPx = with(density) {
+                            (width.max.roundToPx() - horizontalPaddingPx).coerceAtLeast(0)
+                        }
+
+                        for(row in candidateRows) {
+                            val hint = rowHint(row)
+                            val rowMeasurePx = measuredHintWidths.getOrPut(hint) {
+                                hint.measureWidthPx(textMeasurer, density, defaultCellTextStyle)
+                            }
+
+                            measuredPx = max(measuredPx, rowMeasurePx)
+
+                            if(measuredPx >= maxMeasuredPx) {
+                                break
+                            }
                         }
                     }
 
