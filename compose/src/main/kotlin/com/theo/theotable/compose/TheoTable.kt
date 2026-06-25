@@ -281,7 +281,8 @@ private fun <T, K> TheoTableHeader(
 ) {
     Row(
         modifier = Modifier
-            .height(TheoTableDefaults.HeaderHeight),
+            .height(IntrinsicSize.Min)
+            .defaultMinSize(minHeight = TheoTableDefaults.HeaderHeight),
     ) {
         TheoTableHeaderCells(
             columns = columns,
@@ -353,7 +354,8 @@ private fun <T, K> TheoTableHeaderCells(
         Box(
             modifier = Modifier
                 .width(columnWidths[index])
-                .height(TheoTableDefaults.HeaderHeight)
+                .fillMaxHeight()
+                .defaultMinSize(minHeight = TheoTableDefaults.HeaderHeight)
                 .background(column.headerBackground ?: headerBackground)
                 .then(
                     Modifier.theoTableDivider(

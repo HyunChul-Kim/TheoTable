@@ -15,19 +15,12 @@ internal data class DemoColumnOptions(
     val cellTint: Boolean = false,
 )
 
-internal fun DemoColumnOptions.maxLinesForWidthMode(): Int {
-    return when(widthMode) {
-        DemoWidthMode.Content -> 1
-        DemoWidthMode.Fixed -> maxLines
-    }
-}
-
 internal fun DemoColumnOptions.toWidth(): TheoTableColumnWidth {
     return when(widthMode) {
         DemoWidthMode.Content -> TheoTableColumnWidth.Content(
             strategy = TheoTableContentWidthStrategy.ExactAllRows,
             min = 64.dp,
-            max = 320.dp,
+            max = 520.dp,
         )
 
         DemoWidthMode.Fixed -> TheoTableColumnWidth.Fixed(fixedWidthDp.dp)

@@ -4,6 +4,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.theo.theotable.core.SortDirection
@@ -73,6 +74,27 @@ class TheoTableColumnTest {
         assertEquals(headerStyle, headerHint.style)
         assertEquals(cellStyle, cellHint.style)
         assertEquals("305", cellHint.value)
+    }
+
+    @Test
+    fun theoTextColumn_preservesTextLayoutHints() {
+        val column = theoTextColumn<Dessert>(
+            id = "name",
+            title = "Dessert name",
+            value = { it.name },
+            maxLines = 2,
+            overflow = TextOverflow.Clip,
+        )
+
+        val headerHint = column.headerWidthHint as TheoTableWidthHint.Text
+        val cellHint = column.widthHint?.invoke(Dessert("Chocolate cake", 420)) as TheoTableWidthHint.Text
+
+        assertEquals(2, headerHint.maxLines)
+        assertEquals(2, cellHint.maxLines)
+        assertEquals(TextOverflow.Clip, headerHint.overflow)
+        assertEquals(TextOverflow.Clip, cellHint.overflow)
+        assertTrue(headerHint.softWrap)
+        assertTrue(cellHint.softWrap)
     }
 
     @Test

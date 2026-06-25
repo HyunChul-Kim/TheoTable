@@ -95,11 +95,17 @@ fun <T> theoTextColumn(
         headerWidthHint = TheoTableWidthHint.Text(
             value = title,
             style = headerTextStyle,
+            maxLines = maxLines,
+            overflow = overflow,
+            softWrap = maxLines > 1,
         ),
         widthHint = { row ->
             TheoTableWidthHint.Text(
                 value = value(row),
                 style = cellTextStyle,
+                maxLines = maxLines,
+                overflow = overflow,
+                softWrap = maxLines > 1,
             )
         },
         comparator = comparator,
@@ -117,6 +123,7 @@ fun <T> theoTextColumn(
                 style = headerTextStyle ?: tableTextStyles.headerTextStyle,
                 maxLines = maxLines,
                 overflow = overflow,
+                softWrap = maxLines > 1,
             )
         },
         cell = { row ->
@@ -127,6 +134,7 @@ fun <T> theoTextColumn(
                 style = cellTextStyle ?: tableTextStyles.cellTextStyle,
                 maxLines = maxLines,
                 overflow = overflow,
+                softWrap = maxLines > 1,
             )
         },
     )

@@ -9,6 +9,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import kotlin.math.max
@@ -36,9 +37,8 @@ internal fun <T> rememberResolvedColumnWidths(
         layoutDirection,
     ) {
         val horizontalPaddingPx = with(density) {
-            (cellPadding.calculateLeftPadding(layoutDirection) +
-                    cellPadding.calculateRightPadding(layoutDirection)
-            ).roundToPx()
+            cellPadding.calculateLeftPadding(layoutDirection).roundToPx() +
+                    cellPadding.calculateRightPadding(layoutDirection).roundToPx()
         }
 
         columns.map { column ->
@@ -57,26 +57,37 @@ internal fun <T> rememberResolvedColumnWidths(
                         is TheoTableContentWidthStrategy.ExactAllRows -> rows
                     }
 
+                    val maxMeasuredPx = with(density) {
+                        (width.max.roundToPx() - horizontalPaddingPx).coerceAtLeast(0)
+                    }
+
                     var measuredPx = 0
 
                     if(width.includeHeader) {
                         measuredPx = max(
                             measuredPx,
-                            column.headerWidthHint?.measureWidthPx(textMeasurer, density, defaultHeaderTextStyle) ?: 0,
+                            column.headerWidthHint?.measureWidthPx(
+                                textMeasurer = textMeasurer,
+                                density = density,
+                                defaultTextStyle = defaultHeaderTextStyle,
+                                maxWidthPx = maxMeasuredPx,
+                            ) ?: 0,
                         )
                     }
 
                     val rowHint = column.widthHint
                     if(rowHint != null) {
                         val measuredHintWidths = mutableMapOf<TheoTableWidthHint, Int>()
-                        val maxMeasuredPx = with(density) {
-                            (width.max.roundToPx() - horizontalPaddingPx).coerceAtLeast(0)
-                        }
 
                         for(row in candidateRows) {
                             val hint = rowHint(row)
                             val rowMeasurePx = measuredHintWidths.getOrPut(hint) {
-                                hint.measureWidthPx(textMeasurer, density, defaultCellTextStyle)
+                                hint.measureWidthPx(
+                                    textMeasurer = textMeasurer,
+                                    density = density,
+                                    defaultTextStyle = defaultCellTextStyle,
+                                    maxWidthPx = maxMeasuredPx
+                                )
                             }
 
                             measuredPx = max(measuredPx, rowMeasurePx)
@@ -103,22 +114,89 @@ private fun TheoTableWidthHint.measureWidthPx(
     textMeasurer: TextMeasurer,
     density: Density,
     defaultTextStyle: TextStyle,
+    maxWidthPx: Int,
 ): Int {
-    return with(density) {
-        when(this@measureWidthPx) {
-            is TheoTableWidthHint.Text -> {
-                val result = textMeasurer.measure(
-                    text = value,
-                    style = style ?: defaultTextStyle,
-                    overflow = TextOverflow.Clip,
-                    softWrap = false,
-                    maxLines = 1,
-                )
+    return when(this) {
+        is TheoTableWidthHint.Text -> measureTextWidthPx(
+            textMeasurer = textMeasurer,
+            density = density,
+            defaultTextStyle = defaultTextStyle,
+            maxWidthPx = maxWidthPx,
+        )
 
-                result.size.width + leading.roundToPx() + trailing.roundToPx()
-            }
-
-            is TheoTableWidthHint.ExactDp -> value.roundToPx()
+        is TheoTableWidthHint.ExactDp -> with(density) {
+            value.roundToPx()
         }
     }
+}
+
+private fun TheoTableWidthHint.Text.measureTextWidthPx(
+    textMeasurer: TextMeasurer,
+    density: Density,
+    defaultTextStyle: TextStyle,
+    maxWidthPx: Int,
+): Int = with(density) {
+    val extraPx = leading.roundToPx() + trailing.roundToPx()
+    val textMaxWidthPx = (maxWidthPx - extraPx).coerceAtLeast(0)
+    val resolvedStyle = style ?: defaultTextStyle
+
+    val textWidthPx = measureMinimumFittingTextWidthPx(
+        textMeasurer = textMeasurer,
+        text = value,
+        style = resolvedStyle,
+        maxLines = maxLines,
+        overflow = overflow,
+        softWrap = softWrap,
+        maxWidthPx = textMaxWidthPx,
+    )
+
+    textWidthPx + extraPx
+}
+
+private fun measureMinimumFittingTextWidthPx(
+    textMeasurer: TextMeasurer,
+    text: String,
+    style: TextStyle,
+    maxLines: Int,
+    overflow: TextOverflow,
+    softWrap: Boolean,
+    maxWidthPx: Int,
+): Int {
+    if(text.isEmpty() || maxWidthPx <= 0) return 0
+
+    fun fits(widthPx: Int): Boolean {
+        val result = textMeasurer.measure(
+            text = text,
+            style = style,
+            overflow = overflow,
+            softWrap = softWrap,
+            maxLines = maxLines,
+            constraints = Constraints(maxWidth = widthPx),
+        )
+
+        val hasEllipsis = (0 until result.lineCount).any { lineIndex ->
+            result.isLineEllipsized(lineIndex)
+        }
+
+        return !result.hasVisualOverflow && !hasEllipsis
+    }
+
+    if(!fits(maxWidthPx)) return maxWidthPx
+
+    var low = 1
+    var high = maxWidthPx
+    var answer = maxWidthPx
+
+    while(low <= high) {
+        val mid = low + (high - low) / 2
+
+        if(fits(mid)) {
+            answer = mid
+            high = mid - 1
+        } else {
+            low = mid + 1
+        }
+    }
+
+    return answer
 }

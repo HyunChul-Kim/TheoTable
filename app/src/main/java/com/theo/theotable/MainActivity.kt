@@ -54,7 +54,6 @@ import com.theo.theotable.compose.theoTextColumn
 import com.theo.theotable.core.SelectionMode
 import com.theo.theotable.model.DemoColumnOptions
 import com.theo.theotable.model.DemoWidthMode
-import com.theo.theotable.model.maxLinesForWidthMode
 import com.theo.theotable.model.toWidth
 import com.theo.theotable.ui.theme.TheoTableTheme
 import kotlin.math.roundToInt
@@ -142,7 +141,7 @@ private data class DessertColumnSpec(
 private val dessertColumnSpecs = listOf(
     DessertColumnSpec(
         id = "name",
-        title = "Name",
+        title = "name",
         value = { it.name },
         comparator = compareBy { it.name },
         headerTint = Color(0xFFFFF3D8),
@@ -217,7 +216,7 @@ private fun DessertColumnSpec.toColumn(
         cellAlignment = cellAlignment,
         headerBackground = if (options.headerTint) headerTint else null,
         cellBackground = if (options.cellTint) cellTint else null,
-        maxLines = options.maxLinesForWidthMode()
+        maxLines = options.maxLines,
     )
 }
 
@@ -476,13 +475,12 @@ private fun ColumnOptionControls(
             valueRange = 80f..260f,
             enabled = options.widthMode == DemoWidthMode.Fixed,
         )
-        Text("Max lines: ${options.maxLines} (Fixed width only)")
+        Text("Max lines: ${options.maxLines}")
         Slider(
             value = options.maxLines.toFloat(),
             onValueChange = { onChange(options.copy(maxLines = it.roundToInt().coerceIn(1, 5))) },
             valueRange = 1f..5f,
             steps = 3,
-            enabled = options.widthMode == DemoWidthMode.Fixed,
         )
 
         OptionSwitch("Sortable", options.sortable) {
