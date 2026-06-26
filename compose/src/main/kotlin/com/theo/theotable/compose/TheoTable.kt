@@ -7,7 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -36,6 +38,24 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.theo.theotable.compose.column.TheoTableColumn
+import com.theo.theotable.compose.column.TheoTableColumnWidthResolvingMode
+import com.theo.theotable.compose.internal.rememberResolvedColumnWidths
+import com.theo.theotable.compose.layout.TheoTableColumnLayout
+import com.theo.theotable.compose.layout.TheoTableColumnRange
+import com.theo.theotable.compose.layout.TheoTableContentPaddingLayout
+import com.theo.theotable.compose.layout.TheoTableRowHeight
+import com.theo.theotable.compose.layout.resolveTheoTableColumnLayout
+import com.theo.theotable.compose.layout.resolveTheoTableContentPaddingLayout
+import com.theo.theotable.compose.state.TheoTableHeaderState
+import com.theo.theotable.compose.state.TheoTableState
+import com.theo.theotable.compose.state.rememberTheoTableState
+import com.theo.theotable.compose.style.LocalTheoTableTextStyles
+import com.theo.theotable.compose.style.TheoTableColumnBackground
+import com.theo.theotable.compose.style.TheoTableDefaults
+import com.theo.theotable.compose.style.TheoTableDividerColors
+import com.theo.theotable.compose.style.TheoTableStyle
+import com.theo.theotable.compose.style.TheoTableTextStyles
 import com.theo.theotable.core.SelectionMode
 import com.theo.theotable.core.TableEngine
 import com.theo.theotable.core.TableSort
@@ -52,6 +72,8 @@ fun <T, K: Any> TheoTable(
     sortingEnabled: Boolean = true,
     overscrollEnabled: Boolean = false,
     frozenColumnCount: Int = 0,
+    columnWidthResolvingMode: TheoTableColumnWidthResolvingMode = TheoTableColumnWidthResolvingMode.Immediate,
+    columnWidthLoadingContent: (@Composable BoxScope.() -> Unit)? = null,
     rowHeight: TheoTableRowHeight = TheoTableRowHeight.WrapContent(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
     cellPadding: PaddingValues = PaddingValues(
@@ -69,12 +91,15 @@ fun <T, K: Any> TheoTable(
         sortingEnabled = sortingEnabled,
         overscrollEnabled = overscrollEnabled,
         frozenColumnCount = frozenColumnCount,
+        columnWidthResolvingMode = columnWidthResolvingMode,
+        columnWidthLoadingContent = columnWidthLoadingContent,
         textStyle = style.text.base,
         headerTextStyle = style.text.header,
         cellTextStyle = style.text.cell,
         headerBackground = style.background.header,
         cellBackground = style.background.cell,
         selectedRowBackground = style.background.selectedRow,
+        columnBackgrounds = style.background.columns,
         borderColor = style.divider.border,
         dividerColors = style.divider,
         rowHeight = rowHeight,
@@ -95,12 +120,15 @@ fun <T, K: Any> TheoTable(
     sortingEnabled: Boolean = true,
     overscrollEnabled: Boolean = false,
     frozenColumnCount: Int = 0,
+    columnWidthResolvingMode: TheoTableColumnWidthResolvingMode = TheoTableColumnWidthResolvingMode.Immediate,
+    columnWidthLoadingContent: (@Composable BoxScope.() -> Unit)? = null,
     textStyle: TextStyle = TextStyle.Default,
     headerTextStyle: TextStyle = textStyle,
     cellTextStyle: TextStyle = textStyle,
     headerBackground: Color = TheoTableDefaults.HeaderBackground,
     cellBackground: Color = TheoTableDefaults.CellBackground,
     selectedRowBackground: Color = TheoTableDefaults.SelectedRowBackground,
+    columnBackgrounds: Map<String, TheoTableColumnBackground> = emptyMap(),
     borderColor: Color = TheoTableDefaults.BorderColor,
     dividerColors: TheoTableDividerColors = TheoTableDefaults.dividerColors(
         border = borderColor,
@@ -135,13 +163,16 @@ fun <T, K: Any> TheoTable(
         )
     }
 
-    val columnWidths = rememberResolvedColumnWidths(
+    val resolvedColumnWidths = rememberResolvedColumnWidths(
         rows = rows,
         columns = columns,
         cellPadding = cellPadding,
         defaultHeaderTextStyle = headerTextStyle,
         defaultCellTextStyle = cellTextStyle,
+        resolvingMode = columnWidthResolvingMode,
     )
+
+    val columnWidths = resolvedColumnWidths.widths
 
     val horizontalScrollState = rememberScrollState()
     val verticalScrollState = rememberLazyListState()
@@ -212,6 +243,7 @@ fun <T, K: Any> TheoTable(
                     scrollableViewportWidth = scrollableViewportWidth,
                     contentPaddingLayout = contentPaddingLayout,
                     headerBackground = headerBackground,
+                    columnBackgrounds = columnBackgrounds,
                     dividerColors = dividerColors,
                     cellPadding = cellPadding,
                 )
@@ -243,6 +275,7 @@ fun <T, K: Any> TheoTable(
                             isLastRow = isLastRow,
                             cellBackground = cellBackground,
                             selectedRowBackground = selectedRowBackground,
+                            columnBackgrounds = columnBackgrounds,
                             dividerColors = dividerColors,
                             cellPadding = cellPadding,
                             onClick = {
@@ -261,6 +294,21 @@ fun <T, K: Any> TheoTable(
                     }
                 }
             }
+
+            val loadingContent = columnWidthLoadingContent
+
+            if(resolvedColumnWidths.isResolving && loadingContent != null) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = {},
+                        ),
+                    content = loadingContent,
+                )
+            }
         }
     }
 }
@@ -276,6 +324,7 @@ private fun <T, K> TheoTableHeader(
     scrollableViewportWidth: Dp,
     contentPaddingLayout: TheoTableContentPaddingLayout,
     headerBackground: Color,
+    columnBackgrounds: Map<String, TheoTableColumnBackground>,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
@@ -293,6 +342,7 @@ private fun <T, K> TheoTableHeader(
             state = state,
             sortingEnabled = sortingEnabled,
             headerBackground = headerBackground,
+            columnBackgrounds = columnBackgrounds,
             dividerColors = dividerColors,
             cellPadding = cellPadding,
         )
@@ -312,6 +362,7 @@ private fun <T, K> TheoTableHeader(
                     state = state,
                     sortingEnabled = sortingEnabled,
                     headerBackground = headerBackground,
+                    columnBackgrounds = columnBackgrounds,
                     dividerColors = dividerColors,
                     cellPadding = cellPadding,
                 )
@@ -330,6 +381,7 @@ private fun <T, K> TheoTableHeaderCells(
     state: TheoTableState<K>,
     sortingEnabled: Boolean,
     headerBackground: Color,
+    columnBackgrounds: Map<String, TheoTableColumnBackground>,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
@@ -351,12 +403,14 @@ private fun <T, K> TheoTableHeaderCells(
             sortingEnabled = sortingEnabled,
         )
 
+        val columnBackground = columnBackgrounds[column.id.value]
+
         Box(
             modifier = Modifier
                 .width(columnWidths[index])
                 .fillMaxHeight()
                 .defaultMinSize(minHeight = TheoTableDefaults.HeaderHeight)
-                .background(column.headerBackground ?: headerBackground)
+                .background(columnBackground?.header ?: headerBackground)
                 .then(
                     Modifier.theoTableDivider(
                         verticalColor = dividerColors.headerVertical,
@@ -395,6 +449,7 @@ private fun <T> TheoTableRow(
     isLastRow: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
+    columnBackgrounds: Map<String, TheoTableColumnBackground>,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
     onClick: () -> Unit,
@@ -419,6 +474,7 @@ private fun <T> TheoTableRow(
             isLastRow = isLastRow,
             cellBackground = cellBackground,
             selectedRowBackground = selectedRowBackground,
+            columnBackgrounds = columnBackgrounds,
             dividerColors = dividerColors,
             cellPadding = cellPadding,
         )
@@ -441,6 +497,7 @@ private fun <T> TheoTableRow(
                     isLastRow = isLastRow,
                     cellBackground = cellBackground,
                     selectedRowBackground = selectedRowBackground,
+                    columnBackgrounds = columnBackgrounds,
                     dividerColors = dividerColors,
                     cellPadding = cellPadding,
                 )
@@ -461,6 +518,7 @@ private fun <T> TheoTableRowCells(
     isLastRow: Boolean,
     cellBackground: Color,
     selectedRowBackground: Color,
+    columnBackgrounds: Map<String, TheoTableColumnBackground>,
     dividerColors: TheoTableDividerColors,
     cellPadding: PaddingValues,
 ) {
@@ -471,10 +529,11 @@ private fun <T> TheoTableRowCells(
     for(index in range.startIndex until range.endIndex) {
         val column = columns[index]
         val hasNextColumn = index < columns.lastIndex
+        val columnBackground = columnBackgrounds[column.id.value]
         val resolvedCellBackground = if(selected) {
             selectedRowBackground
         } else {
-            column.cellBackground ?: cellBackground
+            columnBackground?.cell ?: cellBackground
         }
 
         Box(
