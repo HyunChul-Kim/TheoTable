@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -173,6 +175,16 @@ fun <T, K: Any> TheoTable(
     )
 
     val columnWidths = resolvedColumnWidths.widths
+
+    SideEffect {
+        state.setColumnWidthResolving(resolvedColumnWidths.isResolving)
+    }
+
+    DisposableEffect(state) {
+        onDispose {
+            state.setColumnWidthResolving(false)
+        }
+    }
 
     val horizontalScrollState = rememberScrollState()
     val verticalScrollState = rememberLazyListState()

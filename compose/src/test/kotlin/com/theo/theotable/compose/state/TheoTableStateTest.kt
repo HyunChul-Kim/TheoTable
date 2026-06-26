@@ -9,6 +9,7 @@ import com.theo.theotable.core.TableSelection
 import com.theo.theotable.core.TableSort
 import com.theo.theotable.core.TableState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -77,6 +78,24 @@ class TheoTableStateTest {
         } ?: return null
 
         return saver.restore(saved)
+    }
+
+    @Test
+    fun columnWidthResolving_defaultsToFalse() {
+        val state = TheoTableState(TableState<Int>())
+
+        assertFalse(state.isColumnWidthResolving)
+    }
+
+    @Test
+    fun columnWidthResolving_isNotSaved() {
+        val state = TheoTableState(TableState<Int>())
+        state.setColumnWidthResolving(true)
+
+        val restored = saveAndRestore(state)
+
+        assertNotNull(restored)
+        assertFalse(restored?.isColumnWidthResolving ?: true)
     }
 
     private data class UnsaveableKey(val value: Int)

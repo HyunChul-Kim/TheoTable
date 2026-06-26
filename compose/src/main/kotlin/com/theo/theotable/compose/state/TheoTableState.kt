@@ -30,6 +30,10 @@ class TheoTableState<K> internal constructor(
     val selection: TableSelection<K>
         get() = value.selection
 
+    private var _isColumnWidthResolving by mutableStateOf(false)
+    val isColumnWidthResolving: Boolean
+        get() = _isColumnWidthResolving
+
     fun setSort(sort: TableSort) {
         value = value.copy(sort = sort)
     }
@@ -58,6 +62,10 @@ class TheoTableState<K> internal constructor(
                 mode = mode,
             )
         )
+    }
+
+    internal fun setColumnWidthResolving(isResolving: Boolean) {
+        _isColumnWidthResolving = isResolving
     }
 }
 

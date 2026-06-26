@@ -145,6 +145,10 @@ private fun DemoContent(
     onDividerOptionsChange: (DemoDividerOptions) -> Unit,
     onColumnOptionsChange: (String, DemoColumnOptions) -> Unit,
 ) {
+    val tableState = key(uiState.selectedDataSet) {
+        rememberTheoTableState<Int>()
+    }
+
     val columnStructureOptions = remember(uiState.columnOptions) {
         uiState.columnOptions.mapValues { (_, options) ->
             options.toStructureOptions()
@@ -178,6 +182,8 @@ private fun DemoContent(
             )
         }
     }
+
+    val showLoading = uiState.isDataLoading || tableState.isColumnWidthResolving
 
     Column(
         modifier = modifier
@@ -224,32 +230,26 @@ private fun DemoContent(
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            when {
-                uiState.isDataLoading -> {
-                    CircularProgressIndicator()
-                }
-
-                uiState.dataLoadError != null -> {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("Failed to load data", fontWeight = FontWeight.Bold)
-                        Text(uiState.dataLoadError)
-                        OutlinedButton(onClick = { onDataSetChange(uiState.selectedDataSet) }) {
-                            Text("Retry")
+            if(!uiState.isDataLoading) {
+                when {
+                    uiState.dataLoadError != null -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Failed to load data", fontWeight = FontWeight.Bold)
+                            Text(uiState.dataLoadError)
+                            OutlinedButton(onClick = { onDataSetChange(uiState.selectedDataSet) }) {
+                                Text("Retry")
+                            }
                         }
                     }
-                }
 
-                uiState.tableData.rows.isEmpty() || columns.isEmpty() -> {
-                    Text("No data")
-                }
+                    uiState.tableData.rows.isEmpty() || columns.isEmpty() -> {
+                        Text("No data")
+                    }
 
-                else -> {
-                    key(uiState.selectedDataSet) {
-                        val tableState = rememberTheoTableState<Int>()
-
+                    else -> {
                         TheoTable(
                             modifier = Modifier
                                 .wrapContentWidth()
@@ -287,19 +287,21 @@ private fun DemoContent(
                                 minimumLoadingDurationMillis = 0L,
                                 keepPreviousWidths = true,
                             ),
-                            columnWidthLoadingContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .background(Color.White.copy(alpha = 0.65f)),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            },
+                            columnWidthLoadingContent = null,
                             contentPadding = PaddingValues(horizontal = uiState.contentPadding.dp),
                         )
                     }
+                }
+            }
+
+            if(showLoading) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color.White.copy(alpha = 0.65f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
                 }
             }
         }
