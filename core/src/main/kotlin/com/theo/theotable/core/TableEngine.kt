@@ -19,7 +19,7 @@ class TableEngine<T, K>(
         rows: List<T>,
         state: TableState<K> = TableState(),
     ): TableSnapshot<T, K> {
-        val sortedRows = rows.sortedWithSort(state.sort)
+        val sortedRows = sortedRows(rows, state.sort)
         val rowKeys = sortedRows.map(rowKey)
 
         return TableSnapshot(
@@ -28,6 +28,13 @@ class TableEngine<T, K>(
             columns = columns,
             state = state,
         )
+    }
+
+    fun sortedRows(
+        rows: List<T>,
+        sort: TableSort = TableSort(),
+    ): List<T> {
+        return rows.sortedWithSort(sort)
     }
 
     private fun List<T>.sortedWithSort(sort: TableSort): List<T> {

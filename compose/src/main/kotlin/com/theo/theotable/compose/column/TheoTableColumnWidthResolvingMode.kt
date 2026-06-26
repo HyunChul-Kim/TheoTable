@@ -13,6 +13,7 @@ sealed interface TheoTableColumnWidthResolvingMode {
         val rowsPerChunk: Int = 25,
         val minimumLoadingDurationMillis: Long = 120L,
         val keepPreviousWidths: Boolean = true,
+        val renderContentWhileResolving: Boolean = true,
     ): TheoTableColumnWidthResolvingMode {
         init {
             require(fallbackWidth > 0.dp) {

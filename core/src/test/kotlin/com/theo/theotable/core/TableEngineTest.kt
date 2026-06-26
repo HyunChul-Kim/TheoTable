@@ -62,6 +62,27 @@ class TableEngineTest {
     }
 
     @Test
+    fun sortedRows_sortsRowsWithoutBuildingSnapshotKeys() {
+        val priceColumn = TableColumn(
+            id = TableColumnId("price"),
+            comparator = compareBy<Dessert> { it.price },
+        )
+        val engine = TableEngine(
+            columns = listOf(priceColumn),
+            rowKey = Dessert::id,
+        )
+
+        val sortedRows = engine.sortedRows(
+            rows = rows,
+            sort = TableSort(
+                specs = listOf(SortSpec(priceColumn.id, SortDirection.Descending)),
+            ),
+        )
+
+        assertEquals(listOf(3, 4, 1, 5, 2), sortedRows.map { it.id })
+    }
+
+    @Test
     fun constructor_rejectsDuplicateColumnIds() {
         val id = TableColumnId("name")
 

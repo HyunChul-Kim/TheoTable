@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TheoTableStateTest {
@@ -81,21 +82,69 @@ class TheoTableStateTest {
     }
 
     @Test
-    fun columnWidthResolving_defaultsToFalse() {
+    fun columnWidthResolutionStatus_defaultsToPending() {
         val state = TheoTableState(TableState<Int>())
 
+        assertEquals(
+            TheoTableColumnWidthResolutionStatus.Pending,
+            state.columnWidthResolutionStatus,
+        )
         assertFalse(state.isColumnWidthResolving)
+        assertFalse(state.isColumnWidthResolved)
     }
 
     @Test
-    fun columnWidthResolving_isNotSaved() {
+    fun columnWidthResolutionStatus_isNotSaved() {
         val state = TheoTableState(TableState<Int>())
-        state.setColumnWidthResolving(true)
+        state.setColumnWidthResolutionStatus(
+            TheoTableColumnWidthResolutionStatus.Resolved
+        )
 
         val restored = saveAndRestore(state)
 
         assertNotNull(restored)
-        assertFalse(restored?.isColumnWidthResolving ?: true)
+        assertEquals(
+            TheoTableColumnWidthResolutionStatus.Pending,
+            restored?.columnWidthResolutionStatus,
+        )
+    }
+
+    @Test
+    fun columnWidthResolutionStatus_updatesDerivedProperties() {
+        val state = TheoTableState(TableState<Int>())
+
+        state.setColumnWidthResolutionStatus(
+            TheoTableColumnWidthResolutionStatus.Resolving
+        )
+
+        assertTrue(state.isColumnWidthResolving)
+        assertFalse(state.isColumnWidthResolved)
+
+        state.setColumnWidthResolutionStatus(
+            TheoTableColumnWidthResolutionStatus.Resolved
+        )
+
+        assertFalse(state.isColumnWidthResolving)
+        assertTrue(state.isColumnWidthResolved)
+    }
+
+    @Test
+    fun value_reflectsSortAndSelectionUpdates() {
+        val state = TheoTableState(TableState<Int>())
+        val sort = TableSort(
+            specs = listOf(
+                SortSpec(
+                    columnId = TableColumnId("name"),
+                    direction = SortDirection.Ascending,
+                )
+            )
+        )
+
+        state.setSort(sort)
+        state.toggleSelection(1, SelectionMode.Multiple)
+
+        assertEquals(sort, state.value.sort)
+        assertEquals(setOf(1), state.value.selection.selectedKeys)
     }
 
     private data class UnsaveableKey(val value: Int)

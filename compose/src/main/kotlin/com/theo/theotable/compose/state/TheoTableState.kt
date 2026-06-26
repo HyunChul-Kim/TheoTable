@@ -2,6 +2,7 @@ package com.theo.theotable.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
@@ -21,21 +22,40 @@ import com.theo.theotable.core.TableState
 class TheoTableState<K> internal constructor(
     initialState: TableState<K>,
 ) {
-    var value: TableState<K> by mutableStateOf(initialState)
-        private set
+    private var sortState by mutableStateOf(initialState.sort)
+    private var selectionState by mutableStateOf(initialState.selection)
+
+    private val tableState = derivedStateOf {
+        TableState(
+            sort = sortState,
+            selection = selectionState,
+        )
+    }
+
+    var value: TableState<K>
+        get() = tableState.value
+        private set(value) {
+            sortState = value.sort
+            selectionState = value.selection
+        }
 
     val sort: TableSort
-        get() = value.sort
+        get() = sortState
 
     val selection: TableSelection<K>
-        get() = value.selection
+        get() = selectionState
 
-    private var _isColumnWidthResolving by mutableStateOf(false)
+    var columnWidthResolutionStatus by mutableStateOf(TheoTableColumnWidthResolutionStatus.Pending)
+        private set
+
     val isColumnWidthResolving: Boolean
-        get() = _isColumnWidthResolving
+        get() = columnWidthResolutionStatus == TheoTableColumnWidthResolutionStatus.Resolving
+
+    val isColumnWidthResolved: Boolean
+        get() = columnWidthResolutionStatus == TheoTableColumnWidthResolutionStatus.Resolved
 
     fun setSort(sort: TableSort) {
-        value = value.copy(sort = sort)
+        sortState = sort
     }
 
     fun toggleSort(column: TableColumn<*>, multiSort: Boolean = false) {
@@ -43,29 +63,27 @@ class TheoTableState<K> internal constructor(
     }
 
     fun clearSelection() {
-        value = value.copy(selection = selection.clear())
+        selectionState = selection.clear()
     }
 
     fun select(key: K, mode: SelectionMode) {
-        value = value.copy(selection = selection.select(key, mode))
+        selectionState = selection.select(key, mode)
     }
 
     fun toggleSelection(key: K, mode: SelectionMode) {
-        value = value.copy(selection = selection.toggle(key, mode))
+        selectionState = selection.toggle(key, mode)
     }
 
     fun selectRange(targetKey: K, orderedKeys: List<K>, mode: SelectionMode) {
-        value = value.copy(
-            selection = selection.selectRange(
-                targetKey = targetKey,
-                orderedKeys = orderedKeys,
-                mode = mode,
-            )
+        selectionState = selection.selectRange(
+            targetKey = targetKey,
+            orderedKeys = orderedKeys,
+            mode = mode,
         )
     }
 
-    internal fun setColumnWidthResolving(isResolving: Boolean) {
-        _isColumnWidthResolving = isResolving
+    internal fun setColumnWidthResolutionStatus(status: TheoTableColumnWidthResolutionStatus) {
+        columnWidthResolutionStatus = status
     }
 }
 

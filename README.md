@@ -16,13 +16,13 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.hyunchul-kim:theotable-compose:0.4.1")
+    implementation("io.github.hyunchul-kim:theotable-compose:0.4.2")
 }
 ```
 Use theotable-core directly only when you need the non-UI table logic without Compose.
 ```kotlin
 dependencies {
-    implementation("io.github.hyunchul-kim:theotable-core:0.4.1")
+    implementation("io.github.hyunchul-kim:theotable-core:0.4.2")
 }
 ```
 
@@ -108,11 +108,12 @@ width = TheoTableColumnWidth.Content(
 ```
 
 ### Deferred Width Loading
-For large content-based tables, use deferred width resolving to render with fallback widths first and update the table when measured widths are ready.
-`TheoTableState.isColumnWidthResolving` lets parent UI combine table width resolving with its own data loading state.
+For large content-based tables, use deferred width resolving to show fallback widths first and update the table when measured widths are ready.
+`TheoTableState.columnWidthResolutionStatus`, `isColumnWidthResolving`, and `isColumnWidthResolved` let parent UI combine table width resolving with its own data loading state.
 ```kotlin
 val tableState = rememberTheoTableState<Long>()
-val showLoading = isDataLoading || tableState.isColumnWidthResolving
+val hasTableContent = !isDataLoading && rows.isNotEmpty()
+val showLoading = isDataLoading || (hasTableContent && !tableState.isColumnWidthResolved)
 
 Box {
     if(!isDataLoading) {
@@ -122,7 +123,9 @@ Box {
             rowKey = { it.id },
             state = tableState,
             style = TheoTableDefaults.style(),
-            columnWidthResolvingMode = TheoTableColumnWidthResolvingMode.Deferred(),
+            columnWidthResolvingMode = TheoTableColumnWidthResolvingMode.Deferred(
+                renderContentWhileResolving = false,
+            ),
             columnWidthLoadingContent = null,
         )
     }

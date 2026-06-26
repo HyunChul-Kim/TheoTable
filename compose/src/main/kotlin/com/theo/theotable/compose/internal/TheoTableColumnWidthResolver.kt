@@ -189,6 +189,7 @@ private fun <T> resolveColumnWidthsImmediately(
         cellPadding.calculateLeftPadding(layoutDirection).roundToPx() +
                 cellPadding.calculateRightPadding(layoutDirection).roundToPx()
     }
+    val textWidthMeasureCache = TextWidthMeasureCache()
 
     return columns.map { column ->
         when(val width = column.width) {
@@ -220,6 +221,7 @@ private fun <T> resolveColumnWidthsImmediately(
                             density = density,
                             defaultTextStyle = defaultHeaderTextStyle,
                             maxWidthPx = maxMeasuredPx,
+                            textWidthMeasureCache = textWidthMeasureCache,
                         ) ?: 0,
                     )
                 }
@@ -236,6 +238,7 @@ private fun <T> resolveColumnWidthsImmediately(
                                 density = density,
                                 defaultTextStyle = defaultCellTextStyle,
                                 maxWidthPx = maxMeasuredPx,
+                                textWidthMeasureCache = textWidthMeasureCache,
                             )
                         }
 
@@ -274,6 +277,7 @@ private suspend fun <T> resolveColumnWidthsDeferred(
         cellPadding.calculateLeftPadding(layoutDirection).roundToPx() +
                 cellPadding.calculateRightPadding(layoutDirection).roundToPx()
     }
+    val textWidthMeasureCache = TextWidthMeasureCache()
 
     return columns.map { column ->
         when(val width = column.width) {
@@ -305,8 +309,11 @@ private suspend fun <T> resolveColumnWidthsDeferred(
                             density = density,
                             defaultTextStyle = defaultHeaderTextStyle,
                             maxWidthPx = maxMeasuredPx,
+                            textWidthMeasureCache = textWidthMeasureCache,
                         ) ?: 0,
                     )
+
+                    frameYieldController.yieldIfNeeded()
                 }
 
                 val rowHint = column.widthHint
@@ -322,6 +329,7 @@ private suspend fun <T> resolveColumnWidthsDeferred(
                                 density = density,
                                 defaultTextStyle = defaultCellTextStyle,
                                 maxWidthPx = maxMeasuredPx,
+                                textWidthMeasureCache = textWidthMeasureCache,
                             )
                         }
 
@@ -357,6 +365,7 @@ private fun TheoTableWidthHint.measureWidthPx(
     density: Density,
     defaultTextStyle: TextStyle,
     maxWidthPx: Int,
+    textWidthMeasureCache: TextWidthMeasureCache,
 ): Int {
     return when(this) {
         is TheoTableWidthHint.Text -> measureTextWidthPx(
@@ -364,6 +373,7 @@ private fun TheoTableWidthHint.measureWidthPx(
             density = density,
             defaultTextStyle = defaultTextStyle,
             maxWidthPx = maxWidthPx,
+            textWidthMeasureCache = textWidthMeasureCache,
         )
 
         is TheoTableWidthHint.ExactDp -> with(density) {
@@ -377,12 +387,13 @@ private fun TheoTableWidthHint.Text.measureTextWidthPx(
     density: Density,
     defaultTextStyle: TextStyle,
     maxWidthPx: Int,
+    textWidthMeasureCache: TextWidthMeasureCache,
 ): Int = with(density) {
     val extraPx = leading.roundToPx() + trailing.roundToPx()
     val textMaxWidthPx = (maxWidthPx - extraPx).coerceAtLeast(0)
     val resolvedStyle = style ?: defaultTextStyle
 
-    val textWidthPx = measurePreferredTextWidthPx(
+    val textWidthPx = textWidthMeasureCache.measurePreferredTextWidthPx(
         textMeasurer = textMeasurer,
         text = value,
         style = resolvedStyle,
@@ -392,22 +403,38 @@ private fun TheoTableWidthHint.Text.measureTextWidthPx(
     textWidthPx + extraPx
 }
 
-private fun measurePreferredTextWidthPx(
-    textMeasurer: TextMeasurer,
-    text: String,
-    style: TextStyle,
-    maxWidthPx: Int,
-): Int {
-    if(text.isEmpty() || maxWidthPx <= 0) return 0
+private class TextWidthMeasureCache {
+    private val measuredWidths = mutableMapOf<TextWidthMeasureKey, Int>()
 
-    val naturalSingleLineWidthPx = textMeasurer.measure(
-        text = text,
-        style = style,
-        overflow = TextOverflow.Clip,
-        softWrap = false,
-        maxLines = 1,
-        constraints = Constraints(),
-    ).size.width
+    fun measurePreferredTextWidthPx(
+        textMeasurer: TextMeasurer,
+        text: String,
+        style: TextStyle,
+        maxWidthPx: Int,
+    ): Int {
+        if(text.isEmpty() || maxWidthPx <= 0) return 0
 
-    return naturalSingleLineWidthPx.coerceAtMost(maxWidthPx)
+        val naturalSingleLineWidthPx = measuredWidths.getOrPut(
+            TextWidthMeasureKey(
+                text = text,
+                style = style,
+            )
+        ) {
+            textMeasurer.measure(
+                text = text,
+                style = style,
+                overflow = TextOverflow.Clip,
+                softWrap = false,
+                maxLines = 1,
+                constraints = Constraints(),
+            ).size.width
+        }
+
+        return naturalSingleLineWidthPx.coerceAtMost(maxWidthPx)
+    }
 }
+
+private data class TextWidthMeasureKey(
+    val text: String,
+    val style: TextStyle,
+)

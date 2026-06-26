@@ -183,7 +183,13 @@ private fun DemoContent(
         }
     }
 
-    val showLoading = uiState.isDataLoading || tableState.isColumnWidthResolving
+    val hasTableContent = !uiState.isDataLoading &&
+            uiState.dataLoadError == null &&
+            uiState.tableData.rows.isNotEmpty() &&
+            columns.isNotEmpty()
+
+    val showLoading = uiState.isDataLoading ||
+            (hasTableContent && !tableState.isColumnWidthResolved)
 
     Column(
         modifier = modifier
@@ -286,6 +292,7 @@ private fun DemoContent(
                                 rowsPerChunk = 50,
                                 minimumLoadingDurationMillis = 0L,
                                 keepPreviousWidths = true,
+                                renderContentWhileResolving = false,
                             ),
                             columnWidthLoadingContent = null,
                             contentPadding = PaddingValues(horizontal = uiState.contentPadding.dp),
